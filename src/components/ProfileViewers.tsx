@@ -35,8 +35,6 @@ export default function ProfileViewers({ userId }: { userId: string }) {
     fetch()
   }, [supabase, userId])
 
-  if (viewers.length === 0) return null
-
   return (
     <div className="bg-bg-card border border-border rounded-2xl px-5 py-4 mb-4">
       <button
@@ -53,7 +51,11 @@ export default function ProfileViewers({ userId }: { userId: string }) {
         </span>
       </button>
 
-      {!expanded && (
+      {!expanded && viewers.length === 0 && (
+        <p className="text-[13px] text-text-muted mt-2">No one has viewed your profile yet</p>
+      )}
+
+      {!expanded && viewers.length > 0 && (
         <div className="flex items-center mt-3 -space-x-2">
           {viewers.slice(0, 5).map((v) => (
             v.viewer?.avatar_url ? (

@@ -12,6 +12,7 @@ import { SBU_MAJORS, SBU_MINORS } from '@/lib/sbu-data'
 import Image from 'next/image'
 import FollowListModal from '@/components/FollowListModal'
 import ProfileViewers from '@/components/ProfileViewers'
+import StyledSelect from '@/components/StyledSelect'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -301,41 +302,75 @@ export default function ProfilePage() {
           </div>
           <div>
             <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
-            <select value={residenceHall} onChange={(e) => updateField('residence_hall', e.target.value, setResidenceHall)} className={inputClass}>
-              <option value="">Select residence hall</option>
-              <optgroup label="Eleanor Roosevelt Community"><option value="Greeley Hall">Greeley Hall</option><option value="Keller Hall">Keller Hall</option><option value="Stimson Hall">Stimson Hall</option><option value="Wagner Hall">Wagner Hall</option></optgroup>
-              <optgroup label="H Community"><option value="Benedict North">Benedict North</option><option value="Benedict South">Benedict South</option><option value="James Hall">James Hall</option><option value="Langmuir Hall">Langmuir Hall</option></optgroup>
-              <optgroup label="Mendelsohn Community"><option value="Ammann Hall">Ammann Hall</option><option value="Gray Hall">Gray Hall</option><option value="Irving Hall">Irving Hall</option><option value="O'Neill Hall">O&apos;Neill Hall</option></optgroup>
-              <optgroup label="Kelly Community"><option value="Baruch Hall">Baruch Hall</option><option value="Dewey Hall">Dewey Hall</option><option value="Eisenhower Hall">Eisenhower Hall</option><option value="Hamilton Hall">Hamilton Hall</option><option value="Schick Hall">Schick Hall</option></optgroup>
-              <optgroup label="Roth Community"><option value="Cardozo Hall">Cardozo Hall</option><option value="Gershwin Hall">Gershwin Hall</option><option value="Hendrix Hall">Hendrix Hall</option><option value="Mount Hall">Mount Hall</option><option value="Whitman Hall">Whitman Hall</option></optgroup>
-              <optgroup label="Tabler Community"><option value="Chinn Hall">Chinn Hall</option><option value="Douglass Hall">Douglass Hall</option><option value="Dreiser Hall">Dreiser Hall</option><option value="Hand Hall">Hand Hall</option><option value="Toscanini Hall">Toscanini Hall</option></optgroup>
-
-              <optgroup label="Apartments"><option value="West Apartments">West Apartments</option><option value="Chapin Apartments">Chapin Apartments</option><option value="Schomburg Apartments">Schomburg Apartments</option></optgroup>
-              <option value="Off Campus">Off Campus</option>
-            </select>
+            <StyledSelect
+              value={residenceHall}
+              onChange={(v) => updateField('residence_hall', v, setResidenceHall)}
+              placeholder="Select residence hall"
+              options={[
+                { value: "Greeley Hall", label: "Greeley Hall", group: "Eleanor Roosevelt" },
+                { value: "Keller Hall", label: "Keller Hall", group: "Eleanor Roosevelt" },
+                { value: "Stimson Hall", label: "Stimson Hall", group: "Eleanor Roosevelt" },
+                { value: "Wagner Hall", label: "Wagner Hall", group: "Eleanor Roosevelt" },
+                { value: "Benedict North", label: "Benedict North", group: "H Community" },
+                { value: "Benedict South", label: "Benedict South", group: "H Community" },
+                { value: "James Hall", label: "James Hall", group: "H Community" },
+                { value: "Langmuir Hall", label: "Langmuir Hall", group: "H Community" },
+                { value: "Ammann Hall", label: "Ammann Hall", group: "Mendelsohn" },
+                { value: "Gray Hall", label: "Gray Hall", group: "Mendelsohn" },
+                { value: "Irving Hall", label: "Irving Hall", group: "Mendelsohn" },
+                { value: "O'Neill Hall", label: "O'Neill Hall", group: "Mendelsohn" },
+                { value: "Baruch Hall", label: "Baruch Hall", group: "Kelly" },
+                { value: "Dewey Hall", label: "Dewey Hall", group: "Kelly" },
+                { value: "Eisenhower Hall", label: "Eisenhower Hall", group: "Kelly" },
+                { value: "Hamilton Hall", label: "Hamilton Hall", group: "Kelly" },
+                { value: "Schick Hall", label: "Schick Hall", group: "Kelly" },
+                { value: "Cardozo Hall", label: "Cardozo Hall", group: "Roth" },
+                { value: "Gershwin Hall", label: "Gershwin Hall", group: "Roth" },
+                { value: "Hendrix Hall", label: "Hendrix Hall", group: "Roth" },
+                { value: "Mount Hall", label: "Mount Hall", group: "Roth" },
+                { value: "Whitman Hall", label: "Whitman Hall", group: "Roth" },
+                { value: "Chinn Hall", label: "Chinn Hall", group: "Tabler" },
+                { value: "Douglass Hall", label: "Douglass Hall", group: "Tabler" },
+                { value: "Dreiser Hall", label: "Dreiser Hall", group: "Tabler" },
+                { value: "Hand Hall", label: "Hand Hall", group: "Tabler" },
+                { value: "Toscanini Hall", label: "Toscanini Hall", group: "Tabler" },
+                { value: "West Apartments", label: "West Apartments", group: "Apartments" },
+                { value: "Chapin Apartments", label: "Chapin Apartments", group: "Apartments" },
+                { value: "Schomburg Apartments", label: "Schomburg Apartments", group: "Apartments" },
+                { value: "Off Campus", label: "Off Campus" },
+              ]}
+            />
           </div>
           <div>
             <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Meal Plan</label>
-            <select value={mealPlan} onChange={(e) => updateField('meal_plan', e.target.value, setMealPlan)} className={inputClass}>
-              <option value="">Select meal plan</option>
-              <option value="Unlimited">Unlimited</option>
-              <option value="Block 110">Block 110</option>
-              <option value="2600 Dining Dollars">2600 Dining Dollars</option>
-              <option value="Commuter 550">Commuter 550</option>
-              <option value="Apartment 550">Apartment 550</option>
-              <option value="Seawolves Performance Plan">Seawolves Performance Plan</option>
-              <option value="Budget Plan">Budget Plan</option>
-              <option value="No Meal Plan">No Meal Plan</option>
-            </select>
+            <StyledSelect
+              value={mealPlan}
+              onChange={(v) => updateField('meal_plan', v, setMealPlan)}
+              placeholder="Select meal plan"
+              options={[
+                { value: "Unlimited", label: "Unlimited" },
+                { value: "Block 110", label: "Block 110" },
+                { value: "2600 Dining Dollars", label: "2600 Dining Dollars" },
+                { value: "Commuter 550", label: "Commuter 550" },
+                { value: "Apartment 550", label: "Apartment 550" },
+                { value: "Seawolves Performance Plan", label: "Seawolves Performance Plan" },
+                { value: "Budget Plan", label: "Budget Plan" },
+                { value: "No Meal Plan", label: "No Meal Plan" },
+              ]}
+            />
           </div>
           <div>
             <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Relationship Status</label>
-            <select value={relationshipStatus} onChange={(e) => updateField('relationship_status', e.target.value, setRelationshipStatus)} className={inputClass}>
-              <option value="">Prefer not to say</option>
-              <option value="Single">Single</option>
-              <option value="In a relationship">In a relationship</option>
-              <option value="Complicated">It&apos;s complicated</option>
-            </select>
+            <StyledSelect
+              value={relationshipStatus}
+              onChange={(v) => updateField('relationship_status', v, setRelationshipStatus)}
+              placeholder="Prefer not to say"
+              options={[
+                { value: "Single", label: "Single" },
+                { value: "In a relationship", label: "In a relationship" },
+                { value: "Complicated", label: "It's complicated" },
+              ]}
+            />
           </div>
         </div>
       </div>
