@@ -136,8 +136,16 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
             </span>
           </div>
           <p className="text-[14px] mt-1 whitespace-pre-wrap break-words">{post.content}</p>
-          {post.image_url && (
-            <Image src={post.image_url} alt="Post image" width={500} height={400} className="rounded-xl mt-3 w-full max-h-[300px] object-cover" />
+          {(post.media_urls?.length > 0 ? post.media_urls : post.image_url ? [post.image_url] : []).length > 0 && (
+            <div className={`grid gap-2 mt-3 ${(post.media_urls?.length || 1) === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {(post.media_urls?.length > 0 ? post.media_urls : [post.image_url!]).map((url, i) => (
+                url.includes('.mp4') || url.includes('.mov') || url.includes('.webm') ? (
+                  <video key={i} src={url} controls className="rounded-xl w-full max-h-[300px] object-cover" />
+                ) : (
+                  <Image key={i} src={url} alt="Post media" width={500} height={400} className="rounded-xl w-full max-h-[300px] object-cover" />
+                )
+              ))}
+            </div>
           )}
           <div className="flex items-center gap-4 mt-3">
             <button
@@ -208,9 +216,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
                 <input
                   type="text"
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={(e) => { if (e.target.value.length <= 5000) setNewComment(e.target.value) }}
                   onKeyDown={(e) => e.key === 'Enter' && handleComment()}
                   placeholder="Write a comment..."
+                  maxLength={5000}
                   className="flex-1 bg-bg-input border border-border rounded-full px-3 py-1.5 text-[13px] placeholder:text-text-muted/50 outline-none focus:border-text-muted transition-colors"
                 />
                 <button

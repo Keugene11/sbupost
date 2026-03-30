@@ -47,6 +47,14 @@ export default function UserProfilePage() {
     setFollowing(followingRes.count ?? 0)
     setIsFollowing((isFollowingRes.data?.length ?? 0) > 0)
     setLoading(false)
+
+    // Record profile view
+    if (user) {
+      await supabase.from('profile_views').upsert(
+        { profile_id: id, viewer_id: user.id, viewed_at: new Date().toISOString() },
+        { onConflict: 'profile_id,viewer_id' }
+      )
+    }
   }, [supabase, id, router])
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import CourseSelect from '@/components/CourseSelect'
 import { SBU_MAJORS, SBU_MINORS } from '@/lib/sbu-data'
 import Image from 'next/image'
 import FollowListModal from '@/components/FollowListModal'
+import ProfileViewers from '@/components/ProfileViewers'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -260,6 +261,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {profile && <ProfileViewers userId={profile.id} />}
 
       <h3 className="text-[16px] font-bold mb-3">Your Posts</h3>
       {posts.length === 0 ? (
