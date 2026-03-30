@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, User, MessageCircle } from 'lucide-react'
 import PostCard from '@/components/PostCard'
 import Image from 'next/image'
+import FollowListModal from '@/components/FollowListModal'
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +18,7 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
   const supabase = useRef(createClient()).current
   const router = useRouter()
 
@@ -130,14 +132,14 @@ export default function UserProfilePage() {
             <p className="text-[18px] font-bold">{posts.length}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Posts</p>
           </div>
-          <div className="text-center">
+          <button className="text-center press" onClick={() => setShowFollowList('followers')}>
             <p className="text-[18px] font-bold">{followers}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Followers</p>
-          </div>
-          <div className="text-center">
+          </button>
+          <button className="text-center press" onClick={() => setShowFollowList('following')}>
             <p className="text-[18px] font-bold">{following}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Following</p>
-          </div>
+          </button>
         </div>
 
         <div className="flex gap-2 mt-4">
@@ -222,6 +224,14 @@ export default function UserProfilePage() {
             <PostCard key={post.id} post={post} currentUserId={currentUserId} />
           ))}
         </div>
+      )}
+
+      {showFollowList && (
+        <FollowListModal
+          userId={id}
+          type={showFollowList}
+          onClose={() => setShowFollowList(null)}
+        />
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import Autocomplete from '@/components/Autocomplete'
 import CourseSelect from '@/components/CourseSelect'
 import { SBU_MAJORS, SBU_MINORS } from '@/lib/sbu-data'
 import Image from 'next/image'
+import FollowListModal from '@/components/FollowListModal'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
 
   // Editable fields
   const [fullName, setFullName] = useState('')
@@ -183,14 +185,14 @@ export default function ProfilePage() {
             <p className="text-[18px] font-bold">{posts.length}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Posts</p>
           </div>
-          <div className="text-center">
+          <button className="text-center press" onClick={() => setShowFollowList('followers')}>
             <p className="text-[18px] font-bold">{followers}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Followers</p>
-          </div>
-          <div className="text-center">
+          </button>
+          <button className="text-center press" onClick={() => setShowFollowList('following')}>
             <p className="text-[18px] font-bold">{following}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Following</p>
-          </div>
+          </button>
         </div>
 
         <div className="space-y-3">
@@ -268,6 +270,14 @@ export default function ProfilePage() {
             <PostCard key={post.id} post={post} currentUserId={profile?.id ?? null} onDeleted={handlePostDeleted} />
           ))}
         </div>
+      )}
+
+      {showFollowList && profile && (
+        <FollowListModal
+          userId={profile.id}
+          type={showFollowList}
+          onClose={() => setShowFollowList(null)}
+        />
       )}
     </div>
   )
