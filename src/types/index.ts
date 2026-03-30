@@ -12,6 +12,8 @@ export interface Profile {
   relationship_status: string
   residence_hall: string
   meal_plan: string
+  username: string | null
+  username_changed_at: string | null
   created_at: string
   updated_at: string
 }

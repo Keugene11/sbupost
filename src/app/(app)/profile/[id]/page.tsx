@@ -131,7 +131,8 @@ export default function UserProfilePage() {
           )}
           <div className="flex-1">
             <h2 className="text-[18px] font-bold">{profile.full_name || 'Anonymous'}</h2>
-            <p className="text-[13px] text-text-muted">{profile.email}</p>
+            {profile.username && <p className="text-[13px] text-text-muted">@{profile.username}</p>}
+            <p className="text-[12px] text-text-muted">{profile.email}</p>
           </div>
         </div>
 

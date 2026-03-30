@@ -7,19 +7,33 @@ import Image from 'next/image'
 
 const MAX_CHARS = 5000
 const MAX_FILES = 4
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
 
 export default function CreatePost({ onPostCreated }: { onPostCreated: () => void }) {
   const [content, setContent] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<{ url: string; type: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const supabase = useRef(createClient()).current
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
     const remaining = MAX_FILES - files.length
-    const toAdd = selected.slice(0, remaining)
+    const toAdd: File[] = []
+    setError('')
+
+    for (const file of selected.slice(0, remaining)) {
+      const isVideo = file.type.startsWith('video/')
+      const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE
+      if (file.size > maxSize) {
+        setError(`${file.name} is too large. Max ${isVideo ? '50MB' : '5MB'} for ${isVideo ? 'videos' : 'images'}.`)
+        continue
+      }
+      toAdd.push(file)
+    }
 
     setFiles((prev) => [...prev, ...toAdd])
     setPreviews((prev) => [
@@ -82,6 +96,9 @@ export default function CreatePost({ onPostCreated }: { onPostCreated: () => voi
         rows={2}
         maxLength={MAX_CHARS}
       />
+      {error && (
+        <p className="text-[12px] text-red-500 mb-1">{error}</p>
+      )}
       {content.length > 0 && (
         <p className={`text-[11px] text-right ${charsLeft < 200 ? 'text-accent' : 'text-text-muted'}`}>
           {charsLeft}

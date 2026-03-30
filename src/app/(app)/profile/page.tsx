@@ -34,6 +34,9 @@ export default function ProfilePage() {
   const [relationshipStatus, setRelationshipStatus] = useState('')
   const [residenceHall, setResidenceHall] = useState('')
   const [mealPlan, setMealPlan] = useState('')
+  const [username, setUsername] = useState('')
+  const [usernameChangedAt, setUsernameChangedAt] = useState<string | null>(null)
+  const [usernameError, setUsernameError] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const supabaseRef = useRef(createClient())
@@ -66,6 +69,8 @@ export default function ProfilePage() {
         setRelationshipStatus(p.relationship_status || '')
         setResidenceHall(p.residence_hall || '')
         setMealPlan(p.meal_plan || '')
+        setUsername(p.username || '')
+        setUsernameChangedAt(p.username_changed_at)
         setAvatarUrl(p.avatar_url)
       }
       if (postsRes.data) setPosts(postsRes.data as Post[])
@@ -94,6 +99,56 @@ export default function ProfilePage() {
     }, 800)
   }
 
+  const canChangeUsername = !usernameChangedAt ||
+    (Date.now() - new Date(usernameChangedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
+
+  const saveUsername = async (newUsername: string) => {
+    setUsername(newUsername)
+    setUsernameError('')
+    if (!newUsername.trim()) return
+
+    if (!canChangeUsername) {
+      const daysLeft = Math.ceil((30 * 24 * 60 * 60 * 1000 - (Date.now() - new Date(usernameChangedAt!).getTime())) / (24 * 60 * 60 * 1000))
+      setUsernameError(`You can change your username again in ${daysLeft} days`)
+      return
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) {
+      setUsernameError('3-20 characters, letters, numbers, underscores only')
+      return
+    }
+
+    const supabase = supabaseRef.current
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // Check uniqueness
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', newUsername)
+      .neq('id', user.id)
+      .single()
+
+    if (existing) {
+      setUsernameError('Username already taken')
+      return
+    }
+
+    const { error } = await supabase.from('profiles').update({
+      username: newUsername,
+      username_changed_at: new Date().toISOString(),
+    }).eq('id', user.id)
+
+    if (error) {
+      setUsernameError('Failed to save username')
+    } else {
+      setUsernameChangedAt(new Date().toISOString())
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
+  }
+
   const updateField = (field: string, value: string, setter: (v: string) => void) => {
     setter(value)
     autoSave({ [field]: value })
@@ -102,6 +157,10 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Profile photo must be under 5MB')
+      return
+    }
     const supabase = supabaseRef.current
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -179,6 +238,25 @@ export default function ProfilePage() {
             <input value={fullName} onChange={(e) => updateField('full_name', e.target.value, setFullName)} placeholder="Your name" className="font-bold text-[18px] bg-transparent outline-none w-full placeholder:text-text-muted/50" />
             <p className="text-[13px] text-text-muted">{profile?.email}</p>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Username</label>
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] text-text-muted">@</span>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20))}
+              onBlur={() => { if (username) saveUsername(username) }}
+              placeholder="username"
+              disabled={!canChangeUsername}
+              className="flex-1 bg-transparent border-b border-border text-[14px] py-1 outline-none focus:border-text-muted transition-colors placeholder:text-text-muted/50 disabled:opacity-50"
+            />
+          </div>
+          {usernameError && <p className="text-[11px] text-red-500 mt-1">{usernameError}</p>}
+          {!canChangeUsername && !usernameError && (
+            <p className="text-[11px] text-text-muted mt-1">Username can be changed every 30 days</p>
+          )}
         </div>
 
         <div className="flex gap-6 mb-4 pb-4 border-b border-border">
