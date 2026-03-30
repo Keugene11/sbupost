@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Search, MessageCircle, User } from 'lucide-react'
 
@@ -30,7 +29,7 @@ export default function BottomNav() {
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = pathname.startsWith(href)
           return (
-            <Link
+            <a
               key={href}
               href={href}
               className={`flex flex-col items-center gap-0.5 px-4 py-1 press ${
@@ -39,7 +38,7 @@ export default function BottomNav() {
             >
               <Icon size={22} strokeWidth={active ? 2 : 1.5} style={{ pointerEvents: 'none' }} />
               <span className="text-[10px] font-medium" style={{ pointerEvents: 'none' }}>{label}</span>
-            </Link>
+            </a>
           )
         })}
       </div>
