@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -23,7 +23,7 @@ interface ConversationWithProfile {
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationWithProfile[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
 
   const fetchConversations = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()

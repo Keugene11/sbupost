@@ -33,7 +33,7 @@ export default function ProfilePage() {
   const [mealPlan, setMealPlan] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
   const router = useRouter()
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 

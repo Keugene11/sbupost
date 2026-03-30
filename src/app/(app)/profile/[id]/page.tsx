@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Post } from '@/types'
 import { useParams, useRouter } from 'next/navigation'
@@ -17,7 +17,7 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
   const router = useRouter()
 
   const fetchData = useCallback(async () => {

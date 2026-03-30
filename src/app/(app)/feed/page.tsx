@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Post } from '@/types'
 import PostCard from '@/components/PostCard'
@@ -11,7 +11,7 @@ export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
 
   const fetchPosts = useCallback(async () => {
     const { data } = await supabase

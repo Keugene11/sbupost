@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
   const router = useRouter()
 
   const scrollToBottom = () => {
