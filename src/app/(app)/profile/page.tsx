@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Post } from '@/types'
 import { useRouter } from 'next/navigation'
@@ -33,52 +33,52 @@ export default function ProfilePage() {
   const [mealPlan, setMealPlan] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-  const supabase = useRef(createClient()).current
+  const supabaseRef = useRef(createClient())
   const router = useRouter()
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('posts').select('*, profiles(*), likes(user_id)').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
-    ])
-
-    if (profileRes.data) {
-      const p = profileRes.data
-      setProfile(p)
-      setFullName(p.full_name || '')
-      setBio(p.bio || '')
-      setMajor(p.major || '')
-      setSecondMajor(p.second_major || '')
-      setMinor(p.minor || '')
-      setClubs(p.clubs || '')
-      setCourses(p.courses || '')
-      setRelationshipStatus(p.relationship_status || '')
-      setResidenceHall(p.residence_hall || '')
-      setMealPlan(p.meal_plan || '')
-      setAvatarUrl(p.avatar_url)
-    }
-    if (postsRes.data) setPosts(postsRes.data as Post[])
-    setFollowers(followersRes.count ?? 0)
-    setFollowing(followingRes.count ?? 0)
-    setLoading(false)
-  }, [supabase])
-
   useEffect(() => {
-    fetchProfile()
-  }, [fetchProfile])
+    const supabase = supabaseRef.current
+    async function fetchProfile() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-  // Auto-save with debounce
-  const autoSave = useCallback(async (updates: Record<string, unknown>) => {
+      const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('posts').select('*, profiles(*), likes(user_id)').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
+      ])
+
+      if (profileRes.data) {
+        const p = profileRes.data
+        setProfile(p)
+        setFullName(p.full_name || '')
+        setBio(p.bio || '')
+        setMajor(p.major || '')
+        setSecondMajor(p.second_major || '')
+        setMinor(p.minor || '')
+        setClubs(p.clubs || '')
+        setCourses(p.courses || '')
+        setRelationshipStatus(p.relationship_status || '')
+        setResidenceHall(p.residence_hall || '')
+        setMealPlan(p.meal_plan || '')
+        setAvatarUrl(p.avatar_url)
+      }
+      if (postsRes.data) setPosts(postsRes.data as Post[])
+      setFollowers(followersRes.count ?? 0)
+      setFollowing(followingRes.count ?? 0)
+      setLoading(false)
+    }
+    fetchProfile()
+  }, [])
+
+  const autoSave = (updates: Record<string, unknown>) => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(async () => {
       setSaving(true)
       setSaved(false)
+      const supabase = supabaseRef.current
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       await supabase.from('profiles').update({
@@ -89,7 +89,7 @@ export default function ProfilePage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     }, 800)
-  }, [supabase])
+  }
 
   const updateField = (field: string, value: string, setter: (v: string) => void) => {
     setter(value)
@@ -99,6 +99,7 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const supabase = supabaseRef.current
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
@@ -120,7 +121,7 @@ export default function ProfilePage() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await supabaseRef.current.auth.signOut()
     router.push('/login')
     router.refresh()
   }
