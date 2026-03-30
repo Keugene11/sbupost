@@ -102,6 +102,14 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Delete old avatar if it exists
+    if (avatarUrl) {
+      const oldPath = avatarUrl.split('/post-images/')[1]
+      if (oldPath) {
+        await supabase.storage.from('post-images').remove([decodeURIComponent(oldPath)])
+      }
+    }
+
     const fileName = `avatars/${user.id}/${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('post-images').upload(fileName, file)
     if (!error) {
