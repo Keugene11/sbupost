@@ -54,12 +54,8 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      const trimmed = input.toUpperCase().trim()
-      // Validate format: PREFIX + space + number
-      const match = trimmed.match(/^([A-Z]{2,4})\s*(\d{3})$/)
-      if (match && SBU_COURSE_PREFIXES.includes(match[1])) {
-        addCourse(`${match[1]} ${match[2]}`)
-      } else if (suggestions.length > 0) {
+      // Only allow selecting from suggestions
+      if (suggestions.length > 0) {
         addCourse(suggestions[0])
       }
     }
