@@ -41,7 +41,10 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6">
-      <h1 className="text-[28px] font-extrabold tracking-tight text-text mb-4">Feed</h1>
+      <div className="mb-4">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-text">SBUPost</h1>
+        <p className="text-[13px] text-text-muted">The social network for Stony Brook students</p>
+      </div>
       <CreatePost onPostCreated={handlePostCreated} />
       {loading ? (
         <div className="flex justify-center py-12">
