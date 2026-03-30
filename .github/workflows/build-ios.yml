@@ -1,4 +1,4 @@
-name: Build iOS App
+name: Build & Upload iOS App
 
 on:
   workflow_dispatch:
@@ -6,6 +6,12 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -32,28 +38,81 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
-      - name: Build iOS (unsigned)
+      - name: Setup App Store Connect API Key
+        run: |
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+
+      - name: Update Xcode project settings
         run: |
           cd ios/App
-          # Use xcworkspace if it exists, otherwise xcodeproj
-          if [ -d "App.xcworkspace" ]; then
-            PROJ_FLAG="-workspace App.xcworkspace"
-          else
-            PROJ_FLAG="-project App.xcodeproj"
+          # Set bundle ID and team
+          sed -i '' 's/com\.getcapacitor\.myapp/com.sbupost.app/g' App.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = \"\"/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID}/g" App.xcodeproj/project.pbxproj
+          sed -i '' "s/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" App.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Manual/CODE_SIGN_STYLE = Automatic/g' App.xcodeproj/project.pbxproj
+          # Also update Info.plist bundle ID if present
+          if grep -q 'com.getcapacitor.myapp' App/Info.plist 2>/dev/null; then
+            sed -i '' 's/com\.getcapacitor\.myapp/com.sbupost.app/g' App/Info.plist
           fi
-          xcodebuild $PROJ_FLAG \
+
+      - name: Archive
+        run: |
+          cd ios/App
+          # Find the workspace or project
+          if [ -d "App.xcworkspace" ]; then
+            PROJ="-workspace App.xcworkspace"
+          else
+            PROJ="-project App.xcodeproj"
+          fi
+          xcodebuild $PROJ \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             archive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
+            DEVELOPMENT_TEAM=$APPLE_TEAM_ID \
+            CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER=com.sbupost.app
 
-      - name: Upload iOS archive
+      - name: Create ExportOptions.plist
+        run: |
+          cat > $RUNNER_TEMP/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>destination</key>
+              <string>upload</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>teamID</key>
+              <string>${APPLE_TEAM_ID}</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Export & Upload to App Store Connect
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
+
+      - name: Upload artifacts (backup)
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ios-archive
-          path: ${{ runner.temp }}/App.xcarchive
+          name: ios-build
+          path: ${{ runner.temp }}/export/
