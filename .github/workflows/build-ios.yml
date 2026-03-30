@@ -20,11 +20,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Create web assets directory
+        run: mkdir -p out && echo '<html><body>Loading...</body></html>' > out/index.html
+
       - name: Add iOS platform
         run: npx cap add ios
 
+      - name: Create assets directory
+        run: mkdir -p ios/App/App/public
+
       - name: Sync Capacitor
         run: npx cap sync ios
+
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install
 
       - name: Build iOS (unsigned)
         run: |

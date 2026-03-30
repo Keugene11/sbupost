@@ -20,6 +20,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Create web assets directory
+        run: mkdir -p out && echo '<html><body>Loading...</body></html>' > out/index.html
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -31,6 +34,9 @@ jobs:
 
       - name: Add Android platform
         run: npx cap add android
+
+      - name: Create assets directory
+        run: mkdir -p android/app/src/main/assets/public
 
       - name: Sync Capacitor
         run: npx cap sync android
