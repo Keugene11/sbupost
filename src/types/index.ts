@@ -10,6 +10,7 @@ export interface Profile {
   clubs: string
   courses: string
   relationship_status: string
+  residence_hall: string
   created_at: string
   updated_at: string
 }

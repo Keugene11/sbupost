@@ -37,6 +37,7 @@ create table public.profiles (
   clubs text default '',
   courses text default '',
   relationship_status text default '',
+  residence_hall text default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

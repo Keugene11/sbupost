@@ -138,6 +138,12 @@ export default function ProfilePage() {
               <span>{profile.courses}</span>
             </div>
           )}
+          {profile?.residence_hall && (
+            <div className="flex gap-2 text-[13px]">
+              <span className="text-text-muted font-medium">Residence:</span>
+              <span>{profile.residence_hall}</span>
+            </div>
+          )}
           {profile?.relationship_status && (
             <div className="flex gap-2 text-[13px]">
               <span className="text-text-muted font-medium">Status:</span>

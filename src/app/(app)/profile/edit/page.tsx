@@ -16,6 +16,7 @@ export default function EditProfilePage() {
   const [clubs, setClubs] = useState('')
   const [courses, setCourses] = useState('')
   const [relationshipStatus, setRelationshipStatus] = useState('')
+  const [residenceHall, setResidenceHall] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -36,6 +37,7 @@ export default function EditProfilePage() {
       setClubs(data.clubs || '')
       setCourses(data.courses || '')
       setRelationshipStatus(data.relationship_status || '')
+      setResidenceHall(data.residence_hall || '')
       setAvatarUrl(data.avatar_url)
     }
     setLoading(false)
@@ -75,6 +77,7 @@ export default function EditProfilePage() {
       clubs,
       courses,
       relationship_status: relationshipStatus,
+      residence_hall: residenceHall,
       avatar_url: avatarUrl,
       updated_at: new Date().toISOString(),
     }).eq('id', user.id)
@@ -146,6 +149,60 @@ export default function EditProfilePage() {
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Spring 2026 Courses</label>
           <input value={courses} onChange={(e) => setCourses(e.target.value)} className={inputClass} placeholder="e.g. CSE 320, CSE 373" />
+        </div>
+        <div>
+          <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
+          <select value={residenceHall} onChange={(e) => setResidenceHall(e.target.value)} className={inputClass}>
+            <option value="">Select residence hall</option>
+            <optgroup label="Roosevelt Community">
+              <option value="Keller Hall">Keller Hall</option>
+              <option value="Greeley Hall">Greeley Hall</option>
+              <option value="Wagner Hall">Wagner Hall</option>
+            </optgroup>
+            <optgroup label="H Community">
+              <option value="Benedict Hall">Benedict Hall</option>
+              <option value="James Hall">James Hall</option>
+              <option value="Langmuir Hall">Langmuir Hall</option>
+            </optgroup>
+            <optgroup label="Mendelsohn Community">
+              <option value="Ammann Hall">Ammann Hall</option>
+              <option value="Gray Hall">Gray Hall</option>
+              <option value="Irving Hall">Irving Hall</option>
+              <option value="O'Neill Hall">O&apos;Neill Hall</option>
+            </optgroup>
+            <optgroup label="Kelly Community">
+              <option value="Dewey Hall">Dewey Hall</option>
+              <option value="Eisenhower Hall">Eisenhower Hall</option>
+              <option value="Hamilton Hall">Hamilton Hall</option>
+              <option value="Schick Hall">Schick Hall</option>
+            </optgroup>
+            <optgroup label="Roth Community">
+              <option value="Cardozo Hall">Cardozo Hall</option>
+              <option value="Gershwin Hall">Gershwin Hall</option>
+              <option value="Hendrix Hall">Hendrix Hall</option>
+              <option value="Mount Hall">Mount Hall</option>
+              <option value="Whitman Hall">Whitman Hall</option>
+            </optgroup>
+            <optgroup label="Tabler Community">
+              <option value="Dreiser Hall">Dreiser Hall</option>
+              <option value="Hand Hall">Hand Hall</option>
+              <option value="Sanger Hall">Sanger Hall</option>
+              <option value="Toscanini Hall">Toscanini Hall</option>
+            </optgroup>
+            <optgroup label="Other Halls">
+              <option value="Lauterbur Hall">Lauterbur Hall</option>
+              <option value="Stimson Hall">Stimson Hall</option>
+              <option value="Yang Hall">Yang Hall</option>
+              <option value="Chavez Hall">Chavez Hall</option>
+              <option value="Tubman Hall">Tubman Hall</option>
+            </optgroup>
+            <optgroup label="Apartments">
+              <option value="West Apartments">West Apartments</option>
+              <option value="Chapin Apartments">Chapin Apartments</option>
+              <option value="Schomburg Apartments">Schomburg Apartments</option>
+            </optgroup>
+            <option value="Off Campus">Off Campus</option>
+          </select>
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Relationship Status</label>
