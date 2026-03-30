@@ -38,25 +38,29 @@ jobs:
       - name: Create assets directory
         run: mkdir -p android/app/src/main/assets/public
 
+      - name: Set version code
+        run: |
+          cd android/app
+          sed -i 's/versionCode [0-9]*/versionCode 2/' build.gradle
+
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build Android APK
+      - name: Sign and build AAB
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk
-          path: android/app/build/outputs/apk/release/*.apk
-
-      - name: Build Android AAB (for Play Store)
-        run: |
-          cd android
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
