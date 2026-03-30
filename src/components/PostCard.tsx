@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Post } from '@/types'
-import { Heart, Trash2, User, MessageCircle, Send } from 'lucide-react'
+import { Heart, Trash2, User, MessageCircle, Send, Eye } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -35,7 +35,33 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
   const [newComment, setNewComment] = useState('')
   const [loadingComments, setLoadingComments] = useState(false)
   const [sending, setSending] = useState(false)
+  const [impressions, setImpressions] = useState(post.post_impressions?.[0]?.count ?? 0)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const impressionRecorded = useRef(false)
   const isOwn = currentUserId === post.user_id
+
+  useEffect(() => {
+    if (!currentUserId || impressionRecorded.current) return
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !impressionRecorded.current) {
+          impressionRecorded.current = true
+          setImpressions((i) => i + 1)
+          supabase
+            .from('post_impressions')
+            .upsert({ post_id: post.id, user_id: currentUserId }, { onConflict: 'post_id,user_id' })
+            .then()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.5 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [currentUserId, post.id, supabase])
 
   const toggleLike = async () => {
     if (!currentUserId) return
@@ -115,7 +141,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
   const profile = post.profiles
 
   return (
-    <div className="bg-bg-card border border-border rounded-2xl px-4 py-4">
+    <div ref={cardRef} className="bg-bg-card border border-border rounded-2xl px-4 py-4">
       <div className="flex items-start gap-3">
         <Link href={`/profile/${post.user_id}`} className="shrink-0">
           {profile?.avatar_url ? (
@@ -162,6 +188,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
               <MessageCircle size={16} />
               {commentCount > 0 && commentCount}
             </button>
+            <span className="flex items-center gap-1.5 text-[13px] text-text-muted">
+              <Eye size={16} />
+              {impressions > 0 && impressions}
+            </span>
             {isOwn && (
               <button
                 onClick={handleDelete}

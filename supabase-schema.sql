@@ -201,6 +201,25 @@ on public.likes for delete to authenticated
 using (auth.uid() = user_id);
 
 -- ============================================
+-- Post Impressions (view tracking)
+-- ============================================
+create table public.post_impressions (
+  post_id uuid references public.posts(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  primary key (post_id, user_id)
+);
+
+alter table public.post_impressions enable row level security;
+
+create policy "Impressions viewable by authenticated"
+on public.post_impressions for select to authenticated using (true);
+
+create policy "Users can record impressions"
+on public.post_impressions for insert to authenticated
+with check (auth.uid() = user_id);
+
+-- ============================================
 -- Indexes for performance
 -- ============================================
 create index idx_posts_user_id on public.posts(user_id);
@@ -210,6 +229,7 @@ create index idx_follows_following on public.follows(following_id);
 create index idx_messages_conversation on public.messages(conversation_id, created_at);
 create index idx_conversations_users on public.conversations(user1_id, user2_id);
 create index idx_likes_post on public.likes(post_id);
+create index idx_post_impressions_post on public.post_impressions(post_id);
 
 -- ============================================
 -- Enable Realtime for messages

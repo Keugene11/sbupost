@@ -16,7 +16,7 @@ export default function FeedPage() {
   const fetchPosts = useCallback(async () => {
     const { data } = await supabase
       .from('posts')
-      .select('*, profiles(*), likes(user_id)')
+      .select('*, profiles(*), likes(user_id), post_impressions(count)')
       .order('created_at', { ascending: false })
       .limit(50)
 

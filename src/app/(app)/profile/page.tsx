@@ -52,7 +52,7 @@ export default function ProfilePage() {
 
       const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('posts').select('*, profiles(*), likes(user_id)').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('posts').select('*, profiles(*), likes(user_id), post_impressions(count)').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
       ])
