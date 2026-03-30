@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { X } from 'lucide-react'
-import { generateCourseSuggestions, SBU_COURSE_PREFIXES } from '@/lib/sbu-data'
+import { getMatchingPrefixes, isValidCoursePrefix } from '@/lib/sbu-data'
 
 interface CourseSelectProps {
   value: string
@@ -13,19 +13,21 @@ interface CourseSelectProps {
 export default function CourseSelect({ value, onChange, className }: CourseSelectProps) {
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [prefixMatches, setPrefixMatches] = useState<{ code: string; name: string }[]>([])
+  const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null)
+  const [courseNumber, setCourseNumber] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+  const numberRef = useRef<HTMLInputElement>(null)
 
   const courses = value ? value.split(', ').filter(Boolean) : []
 
   useEffect(() => {
-    if (input.trim().length < 2) {
-      setSuggestions([])
-      return
+    if (!selectedPrefix && input.length >= 1) {
+      setPrefixMatches(getMatchingPrefixes(input))
+    } else {
+      setPrefixMatches([])
     }
-    const results = generateCourseSuggestions(input).filter((s) => !courses.includes(s))
-    setSuggestions(results.slice(0, 10))
-  }, [input, courses])
+  }, [input, selectedPrefix])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -37,13 +39,23 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const addCourse = (course: string) => {
-    const upper = course.toUpperCase().trim()
-    if (!upper || courses.includes(upper)) return
-    const updated = [...courses, upper].join(', ')
-    onChange(updated)
+  const selectPrefix = (code: string) => {
+    setSelectedPrefix(code)
     setInput('')
-    setSuggestions([])
+    setPrefixMatches([])
+    setCourseNumber('')
+    setTimeout(() => numberRef.current?.focus(), 0)
+  }
+
+  const addCourse = () => {
+    if (!selectedPrefix || !courseNumber.match(/^\d{3}$/)) return
+    const course = `${selectedPrefix} ${courseNumber}`
+    if (courses.includes(course)) return
+    const updated = [...courses, course].join(', ')
+    onChange(updated)
+    setSelectedPrefix(null)
+    setCourseNumber('')
+    setInput('')
   }
 
   const removeCourse = (course: string) => {
@@ -51,14 +63,32 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
     onChange(updated)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleNumberKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      // Only allow selecting from suggestions
-      if (suggestions.length > 0) {
-        addCourse(suggestions[0])
+      addCourse()
+    }
+    if (e.key === 'Backspace' && courseNumber === '') {
+      setSelectedPrefix(null)
+    }
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      // Check if typed text is a valid prefix
+      const upper = input.toUpperCase().trim()
+      if (isValidCoursePrefix(upper)) {
+        selectPrefix(upper)
+      } else if (prefixMatches.length > 0) {
+        selectPrefix(prefixMatches[0].code)
       }
     }
+  }
+
+  const cancelPrefix = () => {
+    setSelectedPrefix(null)
+    setCourseNumber('')
   }
 
   return (
@@ -71,42 +101,76 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
               className="inline-flex items-center gap-1 bg-bg-input text-[12px] font-medium px-2.5 py-1 rounded-full"
             >
               {course}
-              <button
-                type="button"
-                onClick={() => removeCourse(course)}
-                className="text-text-muted hover:text-text"
-              >
+              <button type="button" onClick={() => removeCourse(course)} className="text-text-muted hover:text-text">
                 <X size={12} />
               </button>
             </span>
           ))}
         </div>
       )}
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => {
-          setInput(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={handleKeyDown}
-        placeholder="Type course prefix (e.g. CSE, AMS, BIO...)"
-        className={className}
-      />
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg max-h-[200px] overflow-y-auto">
-          {suggestions.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => addCourse(item)}
-              className="w-full text-left px-4 py-2 text-[13px] hover:bg-bg-card-hover transition-colors first:rounded-t-xl last:rounded-b-xl"
-            >
-              {item}
+
+      {selectedPrefix ? (
+        <div className="flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 bg-accent text-white text-[13px] font-semibold px-2.5 py-1.5 rounded-lg">
+            {selectedPrefix}
+            <button type="button" onClick={cancelPrefix}>
+              <X size={12} />
             </button>
-          ))}
+          </span>
+          <input
+            ref={numberRef}
+            type="text"
+            inputMode="numeric"
+            maxLength={3}
+            value={courseNumber}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '')
+              setCourseNumber(v)
+            }}
+            onKeyDown={handleNumberKeyDown}
+            placeholder="Course # (e.g. 320)"
+            className={className}
+          />
+          {courseNumber.match(/^\d{3}$/) && (
+            <button
+              type="button"
+              onClick={addCourse}
+              className="bg-accent text-white text-[12px] font-semibold px-3 py-2 rounded-xl press shrink-0"
+            >
+              Add
+            </button>
+          )}
         </div>
+      ) : (
+        <>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value)
+              setOpen(true)
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={handleInputKeyDown}
+            placeholder="Search department (e.g. CSE, Math, Bio...)"
+            className={className}
+          />
+          {open && prefixMatches.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg max-h-[200px] overflow-y-auto">
+              {prefixMatches.map(({ code, name }) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => selectPrefix(code)}
+                  className="w-full text-left px-4 py-2 text-[13px] hover:bg-bg-card-hover transition-colors first:rounded-t-xl last:rounded-b-xl"
+                >
+                  <span className="font-semibold">{code}</span>
+                  <span className="text-text-muted ml-2">{name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

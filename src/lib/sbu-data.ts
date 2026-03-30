@@ -115,72 +115,122 @@ export const SBU_MINORS = [
   "Women's and Gender Studies",
 ]
 
-export const SBU_COURSE_PREFIXES = [
-  "AAS", "ACC", "AMS", "ANT", "ARH", "ARS", "AST", "ATM",
-  "BCP", "BIO", "BME", "BUS",
-  "CHE", "CHI", "CIV", "CLS", "CME", "COM", "CSE",
-  "DAN",
-  "EAS", "ECO", "EEL", "EGL", "ESE", "ESG", "ESM", "EST", "ENV",
-  "FRN",
-  "GEO", "GER", "GLI",
-  "HIS", "HON",
-  "ISE", "ITL",
-  "JPN", "JRN",
-  "KOR",
-  "LIN",
-  "MAE", "MAP", "MAR", "MAT", "MEC", "MUS",
-  "NUR",
-  "PHI", "PHY", "POL", "PSY",
-  "SOC", "SPN", "SUS",
-  "THR",
-  "WRT", "WST",
-]
+export const SBU_COURSE_PREFIXES: Record<string, string> = {
+  "AAS": "Asian & Asian American Studies",
+  "ACC": "Accounting",
+  "ADV": "Advanced Graduate Courses",
+  "AFH": "Africana Studies",
+  "AFS": "Air Force Studies",
+  "AMS": "Applied Mathematics & Statistics",
+  "ANT": "Anthropology",
+  "ARB": "Arabic",
+  "ARH": "Art History",
+  "ARS": "Art Studio",
+  "ASC": "Arts & Sciences",
+  "AST": "Astronomy",
+  "ATM": "Atmospheric Sciences",
+  "BCP": "Biochemistry & Cell Biology",
+  "BIO": "Biology",
+  "BME": "Biomedical Engineering",
+  "BUS": "Business Management",
+  "CAR": "Career Development",
+  "CCS": "Cinema & Cultural Studies",
+  "CDS": "Computational Data Science",
+  "CEF": "Civil Engineering Fundamentals",
+  "CHE": "Chemistry",
+  "CHI": "Chinese",
+  "CIS": "Cinema Studies",
+  "CIV": "Civil Engineering",
+  "CLL": "Comparative Literature",
+  "CLS": "Clinical Laboratory Sciences",
+  "CLT": "Cultural Studies",
+  "CME": "Chemical & Molecular Engineering",
+  "COM": "Communication",
+  "CSE": "Computer Science",
+  "CWL": "Creative Writing & Literature",
+  "DAN": "Dance",
+  "EAS": "East Asian Studies",
+  "EBH": "Ecology & Behavioral Biology",
+  "ECO": "Economics",
+  "EDP": "Educational Policy",
+  "EEL": "Electrical Engineering Lab",
+  "EEO": "Electrical Engineering Online",
+  "EGL": "English",
+  "ENS": "Engineering Science",
+  "ENV": "Environmental Studies",
+  "ESE": "Electrical & Computer Engineering",
+  "ESG": "Environmental Science Gateway",
+  "ESM": "Engineering Science & Mechanics",
+  "EST": "Technological Systems Management",
+  "EUR": "European Studies",
+  "FLA": "Foreign Languages",
+  "FLM": "Film Studies",
+  "FRN": "French",
+  "GEO": "Geosciences",
+  "GER": "German",
+  "GLI": "Global Studies",
+  "GRK": "Greek",
+  "GSS": "Graduate Social Sciences",
+  "HAD": "Health Administration",
+  "HAN": "Honors Arts & Sciences",
+  "HIN": "Hindi",
+  "HIS": "History",
+  "HON": "Honors College",
+  "HWC": "Health & Wellness",
+  "ISE": "Information Systems Engineering",
+  "ITL": "Italian",
+  "JPN": "Japanese",
+  "JRN": "Journalism",
+  "KOR": "Korean",
+  "LAC": "Latin American & Caribbean Studies",
+  "LAN": "Languages",
+  "LAT": "Latin",
+  "LIN": "Linguistics",
+  "MAE": "Marine & Atmospheric Engineering",
+  "MAP": "Marine & Atmospheric Policy",
+  "MAR": "Marine Sciences",
+  "MAT": "Mathematics",
+  "MDA": "Media Arts",
+  "MEC": "Mechanical Engineering",
+  "MSL": "Military Science & Leadership",
+  "MUS": "Music",
+  "MVL": "Marine Vertebrate Lab",
+  "NUR": "Nursing",
+  "OAE": "Oceanic & Atmospheric Engineering",
+  "PER": "Performance",
+  "PHI": "Philosophy",
+  "PHY": "Physics",
+  "POL": "Political Science",
+  "POR": "Portuguese",
+  "PSY": "Psychology",
+  "RLS": "Religious Studies",
+  "RUS": "Russian",
+  "SBU": "Stony Brook University",
+  "SOC": "Sociology",
+  "SPN": "Spanish",
+  "SSE": "Social Studies Education",
+  "SUS": "Sustainability Studies",
+  "SWA": "Swahili",
+  "THR": "Theatre Arts",
+  "TRK": "Turkish",
+  "UKR": "Ukrainian",
+  "WRT": "Writing & Rhetoric",
+  "WST": "Women's & Gender Studies",
+}
 
-// Generate common course numbers for autocomplete suggestions
-export function generateCourseSuggestions(query: string): string[] {
+export function isValidCoursePrefix(prefix: string): boolean {
+  return prefix.toUpperCase() in SBU_COURSE_PREFIXES
+}
+
+// Returns matching prefixes with full names for the dropdown
+export function getMatchingPrefixes(query: string): { code: string; name: string }[] {
   const q = query.toUpperCase().trim()
-  if (q.length < 2) return []
+  if (q.length < 1) return []
 
-  // If they typed a prefix, suggest common course numbers
-  const matchingPrefixes = SBU_COURSE_PREFIXES.filter((p) => p.startsWith(q))
-  if (matchingPrefixes.length > 0 && q.length <= 3) {
-    const suggestions: string[] = []
-    for (const prefix of matchingPrefixes.slice(0, 5)) {
-      suggestions.push(
-        `${prefix} 101`, `${prefix} 102`,
-        `${prefix} 110`, `${prefix} 114`,
-        `${prefix} 200`, `${prefix} 210`,
-        `${prefix} 214`, `${prefix} 220`,
-        `${prefix} 300`, `${prefix} 301`,
-        `${prefix} 310`, `${prefix} 320`,
-        `${prefix} 330`, `${prefix} 340`,
-        `${prefix} 350`, `${prefix} 360`,
-        `${prefix} 373`, `${prefix} 380`,
-        `${prefix} 390`, `${prefix} 400`,
-      )
-    }
-    return suggestions
-  }
-
-  // If they typed prefix + partial number, filter
-  const match = q.match(/^([A-Z]{2,4})\s*(\d{0,3})$/)
-  if (match) {
-    const [, prefix, num] = match
-    if (SBU_COURSE_PREFIXES.includes(prefix)) {
-      const numbers = [
-        "101", "102", "110", "114", "130", "142",
-        "200", "210", "214", "220", "230", "240",
-        "300", "301", "310", "312", "316", "320",
-        "325", "328", "330", "331", "340", "341",
-        "350", "351", "355", "360", "373", "380",
-        "390", "391", "394", "400", "416", "421",
-        "440", "475", "487", "495", "496", "499",
-      ]
-      return numbers
-        .filter((n) => n.startsWith(num))
-        .map((n) => `${prefix} ${n}`)
-    }
-  }
-
-  return []
+  return Object.entries(SBU_COURSE_PREFIXES)
+    .filter(([code, name]) =>
+      code.startsWith(q) || name.toUpperCase().includes(q)
+    )
+    .map(([code, name]) => ({ code, name }))
+    .slice(0, 8)
 }
