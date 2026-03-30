@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Home, Search, MessageCircle, User } from 'lucide-react'
 
 const navItems = [
@@ -13,26 +12,39 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border" style={{ zIndex: 2147483647 }}>
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 2147483647,
+        backgroundColor: 'var(--color-bg, #fafafa)',
+        borderTop: '1px solid var(--color-border, #e8e8e8)',
+        pointerEvents: 'auto',
+      }}
+    >
       <div className="max-w-md mx-auto flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = pathname.startsWith(href)
           return (
-            <Link
+            <button
               key={href}
-              href={href}
+              onClick={() => router.push(href)}
               className={`flex flex-col items-center gap-0.5 px-4 py-1 press ${
                 active ? 'text-accent' : 'text-text-muted'
               }`}
+              style={{ pointerEvents: 'auto', cursor: 'pointer' }}
             >
               <Icon size={22} strokeWidth={active ? 2 : 1.5} />
               <span className="text-[10px] font-medium">{label}</span>
-            </Link>
+            </button>
           )
         })}
       </div>
-    </nav>
+    </div>
   )
 }
