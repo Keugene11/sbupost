@@ -25,11 +25,11 @@ export default function Autocomplete({
 
   useEffect(() => {
     if (query.trim().length < 1) {
-      setFiltered(suggestions.slice(0, 8))
+      setFiltered(suggestions)
       return
     }
     const q = query.toLowerCase()
-    setFiltered(suggestions.filter((s) => s.toLowerCase().includes(q)).slice(0, 8))
+    setFiltered(suggestions.filter((s) => s.toLowerCase().includes(q)))
   }, [query, suggestions])
 
   useEffect(() => {
