@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="205" fill="#1a1a1a"/>
+  <text x="50%" y="45%" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-weight="800" font-size="287" fill="white">SBU</text>
+  <text x="50%" y="72%" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-weight="600" font-size="102" fill="#CC0033">POST</text>
+</svg>
