@@ -211,7 +211,6 @@ export default function EditProfilePage() {
             <option value="Single">Single</option>
             <option value="In a relationship">In a relationship</option>
             <option value="Complicated">It&apos;s complicated</option>
-            <option value="Taken">Taken</option>
           </select>
         </div>
       </div>
