@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Camera } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import Autocomplete from '@/components/Autocomplete'
+import CourseSelect from '@/components/CourseSelect'
+import { SBU_MAJORS, SBU_MINORS } from '@/lib/sbu-data'
 
 export default function EditProfilePage() {
   const [fullName, setFullName] = useState('')
@@ -132,15 +135,15 @@ export default function EditProfilePage() {
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Major</label>
-          <input value={major} onChange={(e) => setMajor(e.target.value)} className={inputClass} placeholder="e.g. Computer Science" />
+          <Autocomplete value={major} onChange={setMajor} suggestions={SBU_MAJORS} placeholder="e.g. Computer Science" className={inputClass} />
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Second Major</label>
-          <input value={secondMajor} onChange={(e) => setSecondMajor(e.target.value)} className={inputClass} placeholder="Optional" />
+          <Autocomplete value={secondMajor} onChange={setSecondMajor} suggestions={SBU_MAJORS} placeholder="Optional" className={inputClass} />
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Minor</label>
-          <input value={minor} onChange={(e) => setMinor(e.target.value)} className={inputClass} placeholder="Optional" />
+          <Autocomplete value={minor} onChange={setMinor} suggestions={SBU_MINORS} placeholder="Optional" className={inputClass} />
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Clubs</label>
@@ -148,7 +151,7 @@ export default function EditProfilePage() {
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Spring 2026 Courses</label>
-          <input value={courses} onChange={(e) => setCourses(e.target.value)} className={inputClass} placeholder="e.g. CSE 320, CSE 373" />
+          <CourseSelect value={courses} onChange={setCourses} className={inputClass} />
         </div>
         <div>
           <label className="text-[12px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
