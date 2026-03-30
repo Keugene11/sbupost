@@ -185,8 +185,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabaseRef.current.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    window.location.href = '/login'
   }
 
   const handlePostDeleted = (postId: string) => {
