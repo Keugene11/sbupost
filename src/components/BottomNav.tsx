@@ -1,5 +1,7 @@
 'use client'
 
+import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Search, MessageCircle, User } from 'lucide-react'
@@ -13,9 +15,24 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-bg border-t border-border" style={{ zIndex: 9999 }}>
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const nav = (
+    <nav
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 2147483647,
+        backgroundColor: 'var(--color-bg)',
+        borderTop: '1px solid var(--color-border)',
+      }}
+    >
       <div className="max-w-md mx-auto flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = pathname.startsWith(href)
@@ -35,4 +52,8 @@ export default function BottomNav() {
       </div>
     </nav>
   )
+
+  if (!mounted) return nav
+
+  return createPortal(nav, document.body)
 }
