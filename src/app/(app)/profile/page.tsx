@@ -19,7 +19,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [editing, setEditing] = useState(false)
 
   // Editable fields
   const [fullName, setFullName] = useState('')
@@ -140,16 +139,6 @@ export default function ProfilePage() {
 
   const inputClass = "w-full bg-bg-card border border-border rounded-xl px-3 py-2 text-[14px] placeholder:text-text-muted/50 outline-none focus:border-text-muted transition-colors"
 
-  const InfoRow = ({ label, value }: { label: string; value: string }) => {
-    if (!value) return null
-    return (
-      <div className="flex gap-2 text-[13px]">
-        <span className="text-text-muted font-medium">{label}:</span>
-        <span>{value}</span>
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-md mx-auto px-4 pt-6">
       <div className="flex items-center justify-between mb-4">
@@ -168,47 +157,26 @@ export default function ProfilePage() {
       </div>
 
       <div className="bg-bg-card border border-border rounded-2xl px-5 py-5 mb-4 animate-slide-up">
-        {/* Avatar + Name + Email */}
         <div className="flex items-center gap-4 mb-4">
-          {editing ? (
-            <label className="relative cursor-pointer shrink-0">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="" width={64} height={64} className="rounded-full w-16 h-16 object-cover" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-bg-input flex items-center justify-center">
-                  <User size={28} className="text-text-muted" />
-                </div>
-              )}
-              <div className="absolute bottom-0 right-0 bg-accent text-white rounded-full p-1">
-                <Camera size={10} />
-              </div>
-              <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-            </label>
-          ) : (
-            avatarUrl ? (
-              <Image src={avatarUrl} alt="" width={64} height={64} className="rounded-full w-16 h-16 object-cover shrink-0" />
+          <label className="relative cursor-pointer shrink-0">
+            {avatarUrl ? (
+              <Image src={avatarUrl} alt="" width={64} height={64} className="rounded-full w-16 h-16 object-cover" />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-bg-input flex items-center justify-center shrink-0">
+              <div className="w-16 h-16 rounded-full bg-bg-input flex items-center justify-center">
                 <User size={28} className="text-text-muted" />
               </div>
-            )
-          )}
-          <div className="flex-1 min-w-0">
-            {editing ? (
-              <input
-                value={fullName}
-                onChange={(e) => updateField('full_name', e.target.value, setFullName)}
-                placeholder="Your name"
-                className="font-bold text-[18px] bg-transparent outline-none w-full placeholder:text-text-muted/50"
-              />
-            ) : (
-              <h2 className="font-bold text-[18px]">{fullName || 'No name set'}</h2>
             )}
+            <div className="absolute bottom-0 right-0 bg-accent text-white rounded-full p-1">
+              <Camera size={10} />
+            </div>
+            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+          </label>
+          <div className="flex-1 min-w-0">
+            <input value={fullName} onChange={(e) => updateField('full_name', e.target.value, setFullName)} placeholder="Your name" className="font-bold text-[18px] bg-transparent outline-none w-full placeholder:text-text-muted/50" />
             <p className="text-[13px] text-text-muted">{profile?.email}</p>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="flex gap-6 mb-4 pb-4 border-b border-border">
           <div className="text-center">
             <p className="text-[18px] font-bold">{posts.length}</p>
@@ -224,94 +192,70 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {editing ? (
-          /* ---- EDIT MODE ---- */
-          <div className="space-y-3">
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Bio</label>
-              <textarea value={bio} onChange={(e) => updateField('bio', e.target.value, setBio)} placeholder="Tell us about yourself" className={`${inputClass} resize-none`} rows={2} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Major</label>
-              <Autocomplete value={major} onChange={(v) => updateField('major', v, setMajor)} suggestions={SBU_MAJORS} placeholder="Select major" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Second Major</label>
-              <Autocomplete value={secondMajor} onChange={(v) => updateField('second_major', v, setSecondMajor)} suggestions={SBU_MAJORS} placeholder="Optional" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Minor</label>
-              <Autocomplete value={minor} onChange={(v) => updateField('minor', v, setMinor)} suggestions={SBU_MINORS} placeholder="Optional" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Clubs</label>
-              <input value={clubs} onChange={(e) => updateField('clubs', e.target.value, setClubs)} placeholder="e.g. SBU Hacks, CEAS" className={inputClass} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Spring 2026 Courses</label>
-              <CourseSelect value={courses} onChange={(v) => updateField('courses', v, setCourses)} className={inputClass} />
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
-              <select value={residenceHall} onChange={(e) => updateField('residence_hall', e.target.value, setResidenceHall)} className={inputClass}>
-                <option value="">Select residence hall</option>
-                <optgroup label="Roosevelt Community"><option value="Keller Hall">Keller Hall</option><option value="Greeley Hall">Greeley Hall</option><option value="Wagner Hall">Wagner Hall</option></optgroup>
-                <optgroup label="H Community"><option value="Benedict Hall">Benedict Hall</option><option value="James Hall">James Hall</option><option value="Langmuir Hall">Langmuir Hall</option></optgroup>
-                <optgroup label="Mendelsohn Community"><option value="Ammann Hall">Ammann Hall</option><option value="Gray Hall">Gray Hall</option><option value="Irving Hall">Irving Hall</option><option value="O'Neill Hall">O&apos;Neill Hall</option></optgroup>
-                <optgroup label="Kelly Community"><option value="Dewey Hall">Dewey Hall</option><option value="Eisenhower Hall">Eisenhower Hall</option><option value="Hamilton Hall">Hamilton Hall</option><option value="Schick Hall">Schick Hall</option></optgroup>
-                <optgroup label="Roth Community"><option value="Cardozo Hall">Cardozo Hall</option><option value="Gershwin Hall">Gershwin Hall</option><option value="Hendrix Hall">Hendrix Hall</option><option value="Mount Hall">Mount Hall</option><option value="Whitman Hall">Whitman Hall</option></optgroup>
-                <optgroup label="Tabler Community"><option value="Dreiser Hall">Dreiser Hall</option><option value="Hand Hall">Hand Hall</option><option value="Sanger Hall">Sanger Hall</option><option value="Toscanini Hall">Toscanini Hall</option></optgroup>
-                <optgroup label="Other Halls"><option value="Lauterbur Hall">Lauterbur Hall</option><option value="Stimson Hall">Stimson Hall</option><option value="Yang Hall">Yang Hall</option><option value="Chavez Hall">Chavez Hall</option><option value="Tubman Hall">Tubman Hall</option></optgroup>
-                <optgroup label="Apartments"><option value="West Apartments">West Apartments</option><option value="Chapin Apartments">Chapin Apartments</option><option value="Schomburg Apartments">Schomburg Apartments</option></optgroup>
-                <option value="Off Campus">Off Campus</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Meal Plan</label>
-              <select value={mealPlan} onChange={(e) => updateField('meal_plan', e.target.value, setMealPlan)} className={inputClass}>
-                <option value="">Select meal plan</option>
-                <option value="Unlimited">Unlimited</option>
-                <option value="Block 110">Block 110</option>
-                <option value="2600 Dining Dollars">2600 Dining Dollars</option>
-                <option value="Commuter 550">Commuter 550</option>
-                <option value="Apartment 550">Apartment 550</option>
-                <option value="Seawolves Performance Plan">Seawolves Performance Plan</option>
-                <option value="Budget Plan">Budget Plan</option>
-                <option value="No Meal Plan">No Meal Plan</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Relationship Status</label>
-              <select value={relationshipStatus} onChange={(e) => updateField('relationship_status', e.target.value, setRelationshipStatus)} className={inputClass}>
-                <option value="">Prefer not to say</option>
-                <option value="Single">Single</option>
-                <option value="In a relationship">In a relationship</option>
-                <option value="Complicated">It&apos;s complicated</option>
-              </select>
-            </div>
-            <button onClick={() => setEditing(false)} className="w-full bg-accent text-white py-2.5 rounded-xl font-semibold text-[14px] press mt-1">
-              Done Editing
-            </button>
-          </div>
-        ) : (
-          /* ---- VIEW MODE ---- */
+        <div className="space-y-3">
           <div>
-            {bio && <p className="text-[14px] mb-3">{bio}</p>}
-            <div className="space-y-1.5">
-              <InfoRow label="Major" value={major} />
-              <InfoRow label="Second Major" value={secondMajor} />
-              <InfoRow label="Minor" value={minor} />
-              <InfoRow label="Clubs" value={clubs} />
-              <InfoRow label="Spring 2026" value={courses} />
-              <InfoRow label="Residence" value={residenceHall} />
-              <InfoRow label="Meal Plan" value={mealPlan} />
-              <InfoRow label="Status" value={relationshipStatus} />
-            </div>
-            <button onClick={() => setEditing(true)} className="w-full border border-border py-2.5 rounded-xl font-semibold text-[14px] press mt-4">
-              Edit Profile
-            </button>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Bio</label>
+            <textarea value={bio} onChange={(e) => updateField('bio', e.target.value, setBio)} placeholder="Tell us about yourself" className={`${inputClass} resize-none`} rows={2} />
           </div>
-        )}
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Major</label>
+            <Autocomplete value={major} onChange={(v) => updateField('major', v, setMajor)} suggestions={SBU_MAJORS} placeholder="Select major" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Second Major</label>
+            <Autocomplete value={secondMajor} onChange={(v) => updateField('second_major', v, setSecondMajor)} suggestions={SBU_MAJORS} placeholder="Optional" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Minor</label>
+            <Autocomplete value={minor} onChange={(v) => updateField('minor', v, setMinor)} suggestions={SBU_MINORS} placeholder="Optional" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Clubs</label>
+            <input value={clubs} onChange={(e) => updateField('clubs', e.target.value, setClubs)} placeholder="e.g. SBU Hacks, CEAS" className={inputClass} />
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Spring 2026 Courses</label>
+            <CourseSelect value={courses} onChange={(v) => updateField('courses', v, setCourses)} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
+            <select value={residenceHall} onChange={(e) => updateField('residence_hall', e.target.value, setResidenceHall)} className={inputClass}>
+              <option value="">Select residence hall</option>
+              <optgroup label="Roosevelt Community"><option value="Keller Hall">Keller Hall</option><option value="Greeley Hall">Greeley Hall</option><option value="Wagner Hall">Wagner Hall</option></optgroup>
+              <optgroup label="H Community"><option value="Benedict Hall">Benedict Hall</option><option value="James Hall">James Hall</option><option value="Langmuir Hall">Langmuir Hall</option></optgroup>
+              <optgroup label="Mendelsohn Community"><option value="Ammann Hall">Ammann Hall</option><option value="Gray Hall">Gray Hall</option><option value="Irving Hall">Irving Hall</option><option value="O'Neill Hall">O&apos;Neill Hall</option></optgroup>
+              <optgroup label="Kelly Community"><option value="Dewey Hall">Dewey Hall</option><option value="Eisenhower Hall">Eisenhower Hall</option><option value="Hamilton Hall">Hamilton Hall</option><option value="Schick Hall">Schick Hall</option></optgroup>
+              <optgroup label="Roth Community"><option value="Cardozo Hall">Cardozo Hall</option><option value="Gershwin Hall">Gershwin Hall</option><option value="Hendrix Hall">Hendrix Hall</option><option value="Mount Hall">Mount Hall</option><option value="Whitman Hall">Whitman Hall</option></optgroup>
+              <optgroup label="Tabler Community"><option value="Dreiser Hall">Dreiser Hall</option><option value="Hand Hall">Hand Hall</option><option value="Sanger Hall">Sanger Hall</option><option value="Toscanini Hall">Toscanini Hall</option></optgroup>
+              <optgroup label="Other Halls"><option value="Lauterbur Hall">Lauterbur Hall</option><option value="Stimson Hall">Stimson Hall</option><option value="Yang Hall">Yang Hall</option><option value="Chavez Hall">Chavez Hall</option><option value="Tubman Hall">Tubman Hall</option></optgroup>
+              <optgroup label="Apartments"><option value="West Apartments">West Apartments</option><option value="Chapin Apartments">Chapin Apartments</option><option value="Schomburg Apartments">Schomburg Apartments</option></optgroup>
+              <option value="Off Campus">Off Campus</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Meal Plan</label>
+            <select value={mealPlan} onChange={(e) => updateField('meal_plan', e.target.value, setMealPlan)} className={inputClass}>
+              <option value="">Select meal plan</option>
+              <option value="Unlimited">Unlimited</option>
+              <option value="Block 110">Block 110</option>
+              <option value="2600 Dining Dollars">2600 Dining Dollars</option>
+              <option value="Commuter 550">Commuter 550</option>
+              <option value="Apartment 550">Apartment 550</option>
+              <option value="Seawolves Performance Plan">Seawolves Performance Plan</option>
+              <option value="Budget Plan">Budget Plan</option>
+              <option value="No Meal Plan">No Meal Plan</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Relationship Status</label>
+            <select value={relationshipStatus} onChange={(e) => updateField('relationship_status', e.target.value, setRelationshipStatus)} className={inputClass}>
+              <option value="">Prefer not to say</option>
+              <option value="Single">Single</option>
+              <option value="In a relationship">In a relationship</option>
+              <option value="Complicated">It&apos;s complicated</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <h3 className="text-[16px] font-bold mb-3">Your Posts</h3>
