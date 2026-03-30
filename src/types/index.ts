@@ -11,6 +11,7 @@ export interface Profile {
   courses: string
   relationship_status: string
   residence_hall: string
+  meal_plan: string
   created_at: string
   updated_at: string
 }

@@ -198,6 +198,12 @@ export default function UserProfilePage() {
               <span>{profile.residence_hall}</span>
             </div>
           )}
+          {profile.meal_plan && (
+            <div className="flex gap-2 text-[13px]">
+              <span className="text-text-muted font-medium">Meal Plan:</span>
+              <span>{profile.meal_plan}</span>
+            </div>
+          )}
           {profile.relationship_status && (
             <div className="flex gap-2 text-[13px]">
               <span className="text-text-muted font-medium">Status:</span>

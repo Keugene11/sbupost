@@ -38,6 +38,7 @@ create table public.profiles (
   courses text default '',
   relationship_status text default '',
   residence_hall text default '',
+  meal_plan text default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

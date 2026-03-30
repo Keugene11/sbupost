@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [courses, setCourses] = useState('')
   const [relationshipStatus, setRelationshipStatus] = useState('')
   const [residenceHall, setResidenceHall] = useState('')
+  const [mealPlan, setMealPlan] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const supabase = createClient()
@@ -58,6 +59,7 @@ export default function ProfilePage() {
       setCourses(p.courses || '')
       setRelationshipStatus(p.relationship_status || '')
       setResidenceHall(p.residence_hall || '')
+      setMealPlan(p.meal_plan || '')
       setAvatarUrl(p.avatar_url)
     }
     if (postsRes.data) setPosts(postsRes.data as Post[])
@@ -284,6 +286,26 @@ export default function ProfilePage() {
               <option value="Schomburg Apartments">Schomburg Apartments</option>
             </optgroup>
             <option value="Off Campus">Off Campus</option>
+          </select>
+        </div>
+
+        {/* Meal Plan */}
+        <div className="mb-3">
+          <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Meal Plan</label>
+          <select
+            value={mealPlan}
+            onChange={(e) => updateField('meal_plan', e.target.value, setMealPlan)}
+            className={inputClass}
+          >
+            <option value="">Select meal plan</option>
+            <option value="Unlimited">Unlimited</option>
+            <option value="Block 110">Block 110</option>
+            <option value="2600 Dining Dollars">2600 Dining Dollars</option>
+            <option value="Commuter 550">Commuter 550</option>
+            <option value="Apartment 550">Apartment 550</option>
+            <option value="Seawolves Performance Plan">Seawolves Performance Plan</option>
+            <option value="Budget Plan">Budget Plan</option>
+            <option value="No Meal Plan">No Meal Plan</option>
           </select>
         </div>
 
