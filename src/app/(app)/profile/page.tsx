@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [following, setFollowing] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   // Editable fields
   const [fullName, setFullName] = useState('')
@@ -77,6 +78,7 @@ export default function ProfilePage() {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(async () => {
       setSaving(true)
+      setSaved(false)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       await supabase.from('profiles').update({
@@ -84,6 +86,8 @@ export default function ProfilePage() {
         updated_at: new Date().toISOString(),
       }).eq('id', user.id)
       setSaving(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
     }, 800)
   }, [supabase])
 
@@ -132,7 +136,12 @@ export default function ProfilePage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[24px] font-extrabold tracking-tight">Profile</h1>
         <div className="flex items-center gap-2">
-          {saving && <Check size={16} className="text-green-500 animate-pulse" />}
+          {saving && <span className="text-[12px] text-text-muted animate-pulse">Saving...</span>}
+          {saved && !saving && (
+            <span className="flex items-center gap-1 text-[12px] text-green-600 font-medium animate-fade-in">
+              <Check size={14} /> Saved
+            </span>
+          )}
           <button onClick={handleLogout} className="border border-border rounded-full p-2 press">
             <LogOut size={18} />
           </button>
