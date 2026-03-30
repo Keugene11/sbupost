@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Heart, UserPlus, Loader2, User } from 'lucide-react'
+import { Heart, UserPlus, MessageCircle, Loader2, User } from 'lucide-react'
 import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -10,7 +10,7 @@ interface Notification {
   id: string
   user_id: string
   actor_id: string
-  type: 'like' | 'follow'
+  type: 'like' | 'follow' | 'comment'
   post_id: string | null
   read: boolean
   created_at: string
@@ -88,6 +88,7 @@ export default function NotificationsPage() {
                 <p className="text-[14px]">
                   <span className="font-semibold">{notif.actor?.full_name || 'Someone'}</span>
                   {notif.type === 'like' && ' liked your post'}
+                  {notif.type === 'comment' && ' commented on your post'}
                   {notif.type === 'follow' && ' started following you'}
                 </p>
                 <p className="text-[12px] text-text-muted">
@@ -96,6 +97,7 @@ export default function NotificationsPage() {
               </div>
               <div className="shrink-0">
                 {notif.type === 'like' && <Heart size={18} className="text-accent" fill="currentColor" />}
+                {notif.type === 'comment' && <MessageCircle size={18} className="text-green-500" />}
                 {notif.type === 'follow' && <UserPlus size={18} className="text-blue-500" />}
               </div>
             </a>

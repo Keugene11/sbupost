@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Post } from '@/types'
-import { Heart, Trash2, User } from 'lucide-react'
+import { Heart, Trash2, User, MessageCircle, Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
+
+interface Comment {
+  id: string
+  user_id: string
+  content: string
+  created_at: string
+  profiles: { id: string; full_name: string; avatar_url: string | null }
+}
 
 interface PostCardProps {
   post: Post
@@ -15,12 +23,18 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, currentUserId, onDeleted }: PostCardProps) {
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
   const [likes, setLikes] = useState(post.likes?.length ?? 0)
   const [liked, setLiked] = useState(
     post.likes?.some((l) => l.user_id === currentUserId) ?? false
   )
   const [deleting, setDeleting] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [commentCount, setCommentCount] = useState(0)
+  const [newComment, setNewComment] = useState('')
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [sending, setSending] = useState(false)
   const isOwn = currentUserId === post.user_id
 
   const toggleLike = async () => {
@@ -43,6 +57,61 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
     onDeleted?.(post.id)
   }
 
+  const fetchComments = async () => {
+    setLoadingComments(true)
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(id, full_name, avatar_url)')
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true })
+    if (data) setComments(data as unknown as Comment[])
+    setLoadingComments(false)
+  }
+
+  const toggleComments = async () => {
+    if (!showComments) {
+      await fetchComments()
+      // Get count
+      const { count } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+      setCommentCount(count ?? 0)
+    }
+    setShowComments(!showComments)
+  }
+
+  // Fetch comment count on mount
+  useState(() => {
+    supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id)
+      .then(({ count }) => setCommentCount(count ?? 0))
+  })
+
+  const handleComment = async () => {
+    if (!newComment.trim() || !currentUserId) return
+    setSending(true)
+    const { data } = await supabase
+      .from('comments')
+      .insert({ post_id: post.id, user_id: currentUserId, content: newComment.trim() })
+      .select('*, profiles(id, full_name, avatar_url)')
+      .single()
+    if (data) {
+      setComments((prev) => [...prev, data as unknown as Comment])
+      setCommentCount((c) => c + 1)
+    }
+    setNewComment('')
+    setSending(false)
+  }
+
+  const deleteComment = async (commentId: string) => {
+    await supabase.from('comments').delete().eq('id', commentId)
+    setComments((prev) => prev.filter((c) => c.id !== commentId))
+    setCommentCount((c) => c - 1)
+  }
+
   const profile = post.profiles
 
   return (
@@ -50,13 +119,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
       <div className="flex items-start gap-3">
         <Link href={`/profile/${post.user_id}`} className="shrink-0">
           {profile?.avatar_url ? (
-            <Image
-              src={profile.avatar_url}
-              alt={profile.full_name}
-              width={40}
-              height={40}
-              className="rounded-full object-cover w-10 h-10"
-            />
+            <Image src={profile.avatar_url} alt={profile.full_name} width={40} height={40} className="rounded-full object-cover w-10 h-10" />
           ) : (
             <div className="w-10 h-10 rounded-full bg-bg-input flex items-center justify-center">
               <User size={18} className="text-text-muted" />
@@ -65,10 +128,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <Link
-              href={`/profile/${post.user_id}`}
-              className="font-semibold text-[14px] text-text hover:underline truncate"
-            >
+            <Link href={`/profile/${post.user_id}`} className="font-semibold text-[14px] text-text hover:underline truncate">
               {profile?.full_name || 'Anonymous'}
             </Link>
             <span className="text-[12px] text-text-muted shrink-0">
@@ -77,23 +137,22 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
           </div>
           <p className="text-[14px] mt-1 whitespace-pre-wrap break-words">{post.content}</p>
           {post.image_url && (
-            <Image
-              src={post.image_url}
-              alt="Post image"
-              width={500}
-              height={400}
-              className="rounded-xl mt-3 w-full max-h-[300px] object-cover"
-            />
+            <Image src={post.image_url} alt="Post image" width={500} height={400} className="rounded-xl mt-3 w-full max-h-[300px] object-cover" />
           )}
           <div className="flex items-center gap-4 mt-3">
             <button
               onClick={toggleLike}
-              className={`flex items-center gap-1.5 text-[13px] press ${
-                liked ? 'text-accent' : 'text-text-muted'
-              }`}
+              className={`flex items-center gap-1.5 text-[13px] press ${liked ? 'text-accent' : 'text-text-muted'}`}
             >
               <Heart size={16} fill={liked ? 'currentColor' : 'none'} />
               {likes > 0 && likes}
+            </button>
+            <button
+              onClick={toggleComments}
+              className="flex items-center gap-1.5 text-[13px] text-text-muted press"
+            >
+              <MessageCircle size={16} />
+              {commentCount > 0 && commentCount}
             </button>
             {isOwn && (
               <button
@@ -105,6 +164,65 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
               </button>
             )}
           </div>
+
+          {showComments && (
+            <div className="mt-3 pt-3 border-t border-border">
+              {loadingComments ? (
+                <p className="text-[12px] text-text-muted">Loading...</p>
+              ) : (
+                <div className="space-y-2">
+                  {comments.map((c) => (
+                    <div key={c.id} className="flex items-start gap-2">
+                      <Link href={`/profile/${c.user_id}`} className="shrink-0">
+                        {c.profiles?.avatar_url ? (
+                          <Image src={c.profiles.avatar_url} alt="" width={24} height={24} className="rounded-full w-6 h-6 object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-bg-input flex items-center justify-center">
+                            <User size={10} className="text-text-muted" />
+                          </div>
+                        )}
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px]">
+                          <Link href={`/profile/${c.user_id}`} className="font-semibold hover:underline">
+                            {c.profiles?.full_name || 'Anonymous'}
+                          </Link>{' '}
+                          {c.content}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-text-muted">
+                            {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                          </span>
+                          {c.user_id === currentUserId && (
+                            <button onClick={() => deleteComment(c.id)} className="text-[11px] text-text-muted hover:text-red-500 press">
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleComment()}
+                  placeholder="Write a comment..."
+                  className="flex-1 bg-bg-input border border-border rounded-full px-3 py-1.5 text-[13px] placeholder:text-text-muted/50 outline-none focus:border-text-muted transition-colors"
+                />
+                <button
+                  onClick={handleComment}
+                  disabled={!newComment.trim() || sending}
+                  className="text-accent press disabled:opacity-40"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
