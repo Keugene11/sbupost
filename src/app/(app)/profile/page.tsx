@@ -221,13 +221,13 @@ export default function ProfilePage() {
             <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
             <select value={residenceHall} onChange={(e) => updateField('residence_hall', e.target.value, setResidenceHall)} className={inputClass}>
               <option value="">Select residence hall</option>
-              <optgroup label="Roosevelt Community"><option value="Keller Hall">Keller Hall</option><option value="Greeley Hall">Greeley Hall</option><option value="Wagner Hall">Wagner Hall</option></optgroup>
+              <optgroup label="Eleanor Roosevelt Community"><option value="Greeley Hall">Greeley Hall</option><option value="Keller Hall">Keller Hall</option><option value="Stimson Hall">Stimson Hall</option><option value="Wagner Hall">Wagner Hall</option></optgroup>
               <optgroup label="H Community"><option value="Benedict North">Benedict North</option><option value="Benedict South">Benedict South</option><option value="James Hall">James Hall</option><option value="Langmuir Hall">Langmuir Hall</option></optgroup>
               <optgroup label="Mendelsohn Community"><option value="Ammann Hall">Ammann Hall</option><option value="Gray Hall">Gray Hall</option><option value="Irving Hall">Irving Hall</option><option value="O'Neill Hall">O&apos;Neill Hall</option></optgroup>
-              <optgroup label="Kelly Community"><option value="Dewey Hall">Dewey Hall</option><option value="Eisenhower Hall">Eisenhower Hall</option><option value="Hamilton Hall">Hamilton Hall</option><option value="Schick Hall">Schick Hall</option></optgroup>
+              <optgroup label="Kelly Community"><option value="Baruch Hall">Baruch Hall</option><option value="Dewey Hall">Dewey Hall</option><option value="Eisenhower Hall">Eisenhower Hall</option><option value="Hamilton Hall">Hamilton Hall</option><option value="Schick Hall">Schick Hall</option></optgroup>
               <optgroup label="Roth Community"><option value="Cardozo Hall">Cardozo Hall</option><option value="Gershwin Hall">Gershwin Hall</option><option value="Hendrix Hall">Hendrix Hall</option><option value="Mount Hall">Mount Hall</option><option value="Whitman Hall">Whitman Hall</option></optgroup>
               <optgroup label="Tabler Community"><option value="Chinn Hall">Chinn Hall</option><option value="Douglass Hall">Douglass Hall</option><option value="Dreiser Hall">Dreiser Hall</option><option value="Hand Hall">Hand Hall</option><option value="Toscanini Hall">Toscanini Hall</option></optgroup>
-              <optgroup label="Other Halls"><option value="Lauterbur Hall">Lauterbur Hall</option><option value="Stimson Hall">Stimson Hall</option><option value="Yang Hall">Yang Hall</option><option value="Chavez Hall">Chavez Hall</option><option value="Tubman Hall">Tubman Hall</option></optgroup>
+
               <optgroup label="Apartments"><option value="West Apartments">West Apartments</option><option value="Chapin Apartments">Chapin Apartments</option><option value="Schomburg Apartments">Schomburg Apartments</option></optgroup>
               <option value="Off Campus">Off Campus</option>
             </select>
