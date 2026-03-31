@@ -158,6 +158,7 @@ jobs:
             const displayTypes = [
               { type: 'APP_IPHONE_67', prefix: '67' },
               { type: 'APP_IPHONE_65', prefix: '65' },
+              { type: 'APP_IPAD_PRO_129', prefix: 'ipad' },
             ];
 
             for (const { type: displayType, prefix } of displayTypes) {
