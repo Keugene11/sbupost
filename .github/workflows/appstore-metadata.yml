@@ -320,20 +320,33 @@ jobs:
             // 10. Submit for review (use reviewSubmissions API)
             console.log('Submitting for review...');
             // First try the newer reviewSubmissions endpoint
-            // Create review submission with the version included
+            // Step 1: Create review submission
             let submitResult = await api('POST', '/reviewSubmissions', {
               data: {
                 type: 'reviewSubmissions',
                 relationships: {
-                  app: { data: { type: 'apps', id: appId } },
-                  appStoreVersionForReview: { data: { type: 'appStoreVersions', id: versionId } }
+                  app: { data: { type: 'apps', id: appId } }
                 }
               }
             });
 
             if (submitResult.data) {
               const submissionId = submitResult.data.id;
-              // Confirm submission
+              console.log('Review submission created:', submissionId);
+
+              // Step 2: Add the version as a review submission item
+              const itemResult = await api('POST', '/reviewSubmissionItems', {
+                data: {
+                  type: 'reviewSubmissionItems',
+                  relationships: {
+                    appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
+                    reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } }
+                  }
+                }
+              });
+              console.log('Review item added:', itemResult.data ? 'success' : JSON.stringify(itemResult).slice(0, 300));
+
+              // Step 3: Confirm submission
               const confirmResult = await api('PATCH', '/reviewSubmissions/' + submissionId, {
                 data: {
                   type: 'reviewSubmissions',
