@@ -268,8 +268,7 @@ jobs:
                       violenceCartoonOrFantasy: 'NONE',
                       violenceRealistic: 'NONE',
                       violenceRealisticProlongedGraphicOrSadistic: 'NONE',
-                      unrestrictedWebAccess: false,
-                      seventeenPlus: false
+                      unrestrictedWebAccess: false
                     }
                   }
                 });
@@ -321,27 +320,19 @@ jobs:
             // 10. Submit for review (use reviewSubmissions API)
             console.log('Submitting for review...');
             // First try the newer reviewSubmissions endpoint
+            // Create review submission with the version included
             let submitResult = await api('POST', '/reviewSubmissions', {
               data: {
                 type: 'reviewSubmissions',
                 relationships: {
-                  app: { data: { type: 'apps', id: appId } }
+                  app: { data: { type: 'apps', id: appId } },
+                  appStoreVersionForReview: { data: { type: 'appStoreVersions', id: versionId } }
                 }
               }
             });
 
             if (submitResult.data) {
-              // Now add the version to the submission
               const submissionId = submitResult.data.id;
-              await api('POST', '/reviewSubmissionItems', {
-                data: {
-                  type: 'reviewSubmissionItems',
-                  relationships: {
-                    appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
-                    reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } }
-                  }
-                }
-              });
               // Confirm submission
               const confirmResult = await api('PATCH', '/reviewSubmissions/' + submissionId, {
                 data: {
@@ -352,8 +343,7 @@ jobs:
               });
               console.log('Submit result:', confirmResult.data ? 'SUBMITTED FOR REVIEW!' : JSON.stringify(confirmResult).slice(0, 500));
             } else {
-              console.log('Review submission creation response:', JSON.stringify(submitResult).slice(0, 500));
-              // May already be in review or need manual submission
+              console.log('Review submission response:', JSON.stringify(submitResult).slice(0, 500));
             }
 
             console.log('Done! App is submitted for App Store review.');
