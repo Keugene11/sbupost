@@ -10,6 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Generate JWT Token
         id: jwt
         env:
@@ -20,15 +25,17 @@ jobs:
           mkdir -p ~/private_keys
           echo "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
 
-          # Generate JWT using python3 (available on macOS)
-          TOKEN=$(python3 -c "
-          import jwt, time
-          with open('$HOME/private_keys/AuthKey_${KEY_ID}.p8', 'r') as f:
-              key = f.read()
-          now = int(time.time())
-          payload = {'iss': '${ISSUER_ID}', 'iat': now, 'exp': now + 1200, 'aud': 'appstoreconnect-v1'}
-          token = jwt.encode(payload, key, algorithm='ES256', headers={'kid': '${KEY_ID}'})
-          print(token)
+          TOKEN=$(node -e "
+          const crypto = require('crypto');
+          const fs = require('fs');
+          const key = fs.readFileSync(process.env.HOME + '/private_keys/AuthKey_' + process.env.KEY_ID + '.p8', 'utf8');
+          const now = Math.floor(Date.now() / 1000);
+          const header = JSON.stringify({ alg: 'ES256', kid: process.env.KEY_ID, typ: 'JWT' });
+          const payload = JSON.stringify({ iss: process.env.ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' });
+          const b64 = s => Buffer.from(s).toString('base64url');
+          const input = b64(header) + '.' + b64(payload);
+          const sig = crypto.sign('SHA256', Buffer.from(input), { key, dsaEncoding: 'ieee-p1363' });
+          console.log(input + '.' + sig.toString('base64url'));
           ")
           echo "TOKEN=$TOKEN" >> $GITHUB_OUTPUT
 
