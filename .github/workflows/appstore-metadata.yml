@@ -374,7 +374,7 @@ jobs:
                     contactFirstName: 'Keugene',
                     contactLastName: 'Lee',
                     contactEmail: 'keugenelee11@gmail.com',
-                    contactPhone: '+1-000-000-0000',
+                    contactPhone: '+16310000000',
                     notes: 'SBUPost is a social networking app for Stony Brook University students. To test, you can sign up with any email or use Google Sign In.'
                   },
                   relationships: {
