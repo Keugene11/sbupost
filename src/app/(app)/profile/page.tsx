@@ -14,60 +14,6 @@ import FollowListModal from '@/components/FollowListModal'
 import ProfileViewers from '@/components/ProfileViewers'
 import StyledSelect from '@/components/StyledSelect'
 
-function ProfileSkeleton() {
-  return (
-    <div className="max-w-md mx-auto px-4 pt-6 pb-10">
-      <div className="flex items-center justify-between mb-5">
-        <div className="h-7 bg-bg-input rounded w-20 animate-pulse" />
-        <div className="w-9 h-9 rounded-full bg-bg-input animate-pulse" />
-      </div>
-      <div className="bg-bg-card border border-border rounded-2xl px-5 py-6 mb-5 animate-pulse">
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-16 h-16 rounded-full bg-bg-input shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-5 bg-bg-input rounded w-32" />
-            <div className="h-3.5 bg-bg-input rounded w-40" />
-          </div>
-        </div>
-        <div className="mb-5 space-y-1.5">
-          <div className="h-3 bg-bg-input rounded w-16" />
-          <div className="h-4 bg-bg-input rounded w-28" />
-        </div>
-        <div className="flex gap-6 mb-5 pb-5 border-b border-border">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="text-center space-y-1.5">
-              <div className="h-5 bg-bg-input rounded w-8 mx-auto" />
-              <div className="h-3 bg-bg-input rounded w-14 mx-auto" />
-            </div>
-          ))}
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="h-3 bg-bg-input rounded w-16" />
-              <div className="h-9 bg-bg-input rounded-xl w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="h-4 bg-bg-input rounded w-24 mb-3 animate-pulse" />
-      {[1, 2].map((i) => (
-        <div key={i} className="bg-bg-card border border-border rounded-2xl p-4 mb-3 animate-pulse">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-bg-input" />
-            <div className="space-y-1.5 flex-1">
-              <div className="h-3.5 bg-bg-input rounded w-24" />
-              <div className="h-3 bg-bg-input rounded w-16" />
-            </div>
-          </div>
-          <div className="h-3.5 bg-bg-input rounded w-full mb-1.5" />
-          <div className="h-3.5 bg-bg-input rounded w-2/3" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -77,8 +23,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
+  // Editable fields
   const [fullName, setFullName] = useState('')
   const [bio, setBio] = useState('')
   const [major, setMajor] = useState('')
@@ -177,6 +123,7 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Check uniqueness
     const { data: existing } = await supabase
       .from('profiles')
       .select('id')
@@ -215,14 +162,11 @@ export default function ProfilePage() {
       alert('Profile photo must be under 5MB')
       return
     }
-    setUploadingAvatar(true)
     const supabase = supabaseRef.current
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setUploadingAvatar(false)
-      return
-    }
+    if (!user) return
 
+    // Delete old avatar if it exists
     if (avatarUrl) {
       const oldPath = avatarUrl.split('/post-images/')[1]
       if (oldPath) {
@@ -237,7 +181,6 @@ export default function ProfilePage() {
       setAvatarUrl(urlData.publicUrl)
       autoSave({ avatar_url: urlData.publicUrl })
     }
-    setUploadingAvatar(false)
   }
 
   const handleLogout = async () => {
@@ -250,14 +193,18 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return <ProfileSkeleton />
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-text-muted" />
+      </div>
+    )
   }
 
   const inputClass = "w-full bg-bg-card border border-border rounded-xl px-3 py-2 text-[14px] placeholder:text-text-muted/50 outline-none focus:border-text-muted transition-colors"
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6 pb-10">
-      <div className="flex items-center justify-between mb-5">
+    <div className="max-w-md mx-auto px-4 pt-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-[24px] font-extrabold tracking-tight">Profile</h1>
         <div className="flex items-center gap-2">
           {saving && <span className="text-[12px] text-text-muted animate-pulse">Saving...</span>}
@@ -272,36 +219,29 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="bg-bg-card border border-border rounded-2xl px-5 py-6 mb-5 animate-slide-up">
-        {/* Avatar & Name */}
-        <div className="flex items-center gap-4 mb-5">
+      <div className="bg-bg-card border border-border rounded-2xl px-5 py-5 mb-4 animate-slide-up">
+        <div className="flex items-center gap-4 mb-4">
           <label className="relative cursor-pointer shrink-0">
             {avatarUrl ? (
-              <Image src={avatarUrl} alt="" width={64} height={64} className={`rounded-full w-16 h-16 object-cover ${uploadingAvatar ? 'opacity-40' : ''}`} />
+              <Image src={avatarUrl} alt="" width={64} height={64} className="rounded-full w-16 h-16 object-cover" />
             ) : (
-              <div className={`w-16 h-16 rounded-full bg-bg-input flex items-center justify-center ${uploadingAvatar ? 'opacity-40' : ''}`}>
+              <div className="w-16 h-16 rounded-full bg-bg-input flex items-center justify-center">
                 <User size={28} className="text-text-muted" />
-              </div>
-            )}
-            {uploadingAvatar && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 size={22} className="animate-spin text-text-muted" />
               </div>
             )}
             <div className="absolute bottom-0 right-0 bg-accent text-white rounded-full p-1">
               <Camera size={10} />
             </div>
-            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
+            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
           </label>
           <div className="flex-1 min-w-0">
             <input value={fullName} onChange={(e) => updateField('full_name', e.target.value, setFullName)} placeholder="Your name" className="font-bold text-[18px] bg-transparent outline-none w-full placeholder:text-text-muted/50" />
-            <p className="text-[13px] text-text-muted truncate">{profile?.email}</p>
+            <p className="text-[13px] text-text-muted">{profile?.email}</p>
           </div>
         </div>
 
-        {/* Username */}
-        <div className="mb-5">
-          <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Username</label>
+        <div className="mb-4">
+          <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Username</label>
           <div className="flex items-center gap-2">
             <span className="text-[14px] text-text-muted">@</span>
             <input
@@ -319,8 +259,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Stats */}
-        <div className="flex gap-6 mb-5 pb-5 border-b border-border">
+        <div className="flex gap-6 mb-4 pb-4 border-b border-border">
           <div className="text-center">
             <p className="text-[18px] font-bold">{posts.length}</p>
             <p className="text-[11px] text-text-muted uppercase tracking-wide">Posts</p>
@@ -335,34 +274,33 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Form fields */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Bio</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Bio</label>
             <textarea value={bio} onChange={(e) => updateField('bio', e.target.value, setBio)} placeholder="Tell us about yourself" className={`${inputClass} resize-none`} rows={2} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Major</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Major</label>
             <Autocomplete value={major} onChange={(v) => updateField('major', v, setMajor)} suggestions={SBU_MAJORS} placeholder="Select major" className={inputClass} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Second Major</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Second Major</label>
             <Autocomplete value={secondMajor} onChange={(v) => updateField('second_major', v, setSecondMajor)} suggestions={SBU_MAJORS} placeholder="Optional" className={inputClass} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Minor</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Minor</label>
             <Autocomplete value={minor} onChange={(v) => updateField('minor', v, setMinor)} suggestions={SBU_MINORS} placeholder="Optional" className={inputClass} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Clubs</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Clubs</label>
             <input value={clubs} onChange={(e) => updateField('clubs', e.target.value, setClubs)} placeholder="e.g. SBU Hacks, CEAS" className={inputClass} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Spring 2026 Courses</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Spring 2026 Courses</label>
             <CourseSelect value={courses} onChange={(v) => updateField('courses', v, setCourses)} className={inputClass} />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Residence Hall</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Residence Hall</label>
             <StyledSelect
               value={residenceHall}
               onChange={(v) => updateField('residence_hall', v, setResidenceHall)}
@@ -403,7 +341,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Meal Plan</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Meal Plan</label>
             <StyledSelect
               value={mealPlan}
               onChange={(v) => updateField('meal_plan', v, setMealPlan)}
@@ -421,7 +359,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1.5 block">Relationship Status</label>
+            <label className="text-[11px] text-text-muted uppercase tracking-wide font-medium mb-1 block">Relationship Status</label>
             <StyledSelect
               value={relationshipStatus}
               onChange={(v) => updateField('relationship_status', v, setRelationshipStatus)}
