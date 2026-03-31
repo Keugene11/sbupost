@@ -209,7 +209,7 @@ jobs:
                 const reserve = await api('POST', '/appScreenshots', {
                   data: {
                     type: 'appScreenshots',
-                    attributes: { fileName: prefix + '_' + i + '.png', fileSize, sourceFileChecksum: checksum },
+                    attributes: { fileName: prefix + '_' + i + '.png', fileSize },
                     relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } }
                   }
                 });
