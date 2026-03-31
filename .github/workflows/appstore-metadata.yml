@@ -241,7 +241,97 @@ jobs:
               }
             }
 
-            console.log('Done! All metadata and screenshots updated.');
+            // 7. Set age rating (all NONE — social app with no objectionable content)
+            console.log('Setting age rating...');
+            const appInfos2 = await api('GET', '/apps/' + appId + '/appInfos');
+            if (appInfos2.data && appInfos2.data.length > 0) {
+              const appInfoId = appInfos2.data[0].id;
+              // Get age rating declaration
+              const ageRatingDecl = await api('GET', '/appInfos/' + appInfoId + '/ageRatingDeclaration');
+              if (ageRatingDecl.data) {
+                const ageId = ageRatingDecl.data.id;
+                const ageResult = await api('PATCH', '/ageRatingDeclarations/' + ageId, {
+                  data: {
+                    type: 'ageRatingDeclarations',
+                    id: ageId,
+                    attributes: {
+                      alcoholTobaccoOrDrugUseOrReferences: 'NONE',
+                      contests: 'NONE',
+                      gamblingAndContests: false,
+                      gambling: false,
+                      gamblingSimulated: 'NONE',
+                      horrorOrFearThemes: 'NONE',
+                      matureOrSuggestiveThemes: 'NONE',
+                      medicalOrTreatmentInformation: 'NONE',
+                      profanityOrCrudeHumor: 'NONE',
+                      sexualContentGraphicAndNudity: 'NONE',
+                      sexualContentOrNudity: 'NONE',
+                      violenceCartoonOrFantasy: 'NONE',
+                      violenceRealistic: 'NONE',
+                      violenceRealisticProlongedGraphicOrSadistic: 'NONE',
+                      unrestrictedWebAccess: false,
+                      seventeenPlus: false
+                    }
+                  }
+                });
+                console.log('Age rating set:', ageResult.data ? 'success' : JSON.stringify(ageResult).slice(0, 300));
+              }
+            }
+
+            // 8. Set pricing to Free
+            console.log('Setting pricing to Free...');
+            // Check if there's already a price schedule
+            const priceResult = await api('GET', '/apps/' + appId + '/appPriceSchedule');
+            if (priceResult.data) {
+              console.log('Price schedule already exists');
+            } else {
+              // For new apps, we set it via appPriceSchedule
+              const setPriceResult = await api('POST', '/appPriceSchedules', {
+                data: {
+                  type: 'appPriceSchedules',
+                  relationships: {
+                    app: { data: { type: 'apps', id: appId } },
+                    manualPrices: { data: [{ type: 'appPrices', id: '${price_point_free}' }] },
+                    baseTerritory: { data: { type: 'territories', id: 'USA' } }
+                  }
+                }
+              });
+              console.log('Price set:', setPriceResult.data ? 'success' : JSON.stringify(setPriceResult).slice(0, 300));
+            }
+
+            // 9. Select latest build
+            console.log('Selecting build...');
+            const builds = await api('GET', '/builds?filter[app]=' + appId + '&filter[processingState]=VALID&sort=-uploadedDate&limit=1');
+            if (builds.data && builds.data.length > 0) {
+              const buildId = builds.data[0].id;
+              console.log('Latest build:', buildId);
+              const buildResult = await api('PATCH', '/appStoreVersions/' + versionId, {
+                data: {
+                  type: 'appStoreVersions',
+                  id: versionId,
+                  relationships: {
+                    build: { data: { type: 'builds', id: buildId } }
+                  }
+                }
+              });
+              console.log('Build selected:', buildResult.data ? 'success' : JSON.stringify(buildResult).slice(0, 300));
+            } else {
+              console.log('No valid builds found. Builds response:', JSON.stringify(builds).slice(0, 300));
+            }
+
+            // 10. Submit for review
+            console.log('Submitting for review...');
+            const submitResult = await api('POST', '/appStoreVersionSubmissions', {
+              data: {
+                type: 'appStoreVersionSubmissions',
+                relationships: {
+                  appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } }
+                }
+              }
+            });
+            console.log('Submit result:', submitResult.data ? 'SUBMITTED FOR REVIEW!' : JSON.stringify(submitResult).slice(0, 500));
+
+            console.log('Done! App is submitted for App Store review.');
           }
 
           main().catch(e => { console.error(e); process.exit(1); });
