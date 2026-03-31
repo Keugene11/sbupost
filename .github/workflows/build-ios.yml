@@ -22,7 +22,37 @@ jobs:
         run: pnpm install
 
       - name: Create web assets directory
-        run: mkdir -p out && echo '<html><body>Loading...</body></html>' > out/index.html
+        run: |
+          mkdir -p out
+          cat > out/index.html << 'FALLBACK'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>SBUPost</title>
+            <style>
+              body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fafafa; font-family: -apple-system, sans-serif; }
+              .loader { text-align: center; }
+              .spinner { width: 24px; height: 24px; border: 2px solid #e8e8e8; border-top-color: #1a1a1a; border-radius: 50%; animation: spin 0.6s linear infinite; margin: 0 auto 12px; }
+              @keyframes spin { to { transform: rotate(360deg); } }
+              p { color: #999; font-size: 14px; }
+            </style>
+            <script>
+              // Redirect to the server URL if loaded locally
+              setTimeout(function() {
+                window.location.href = 'https://sbupost.vercel.app/feed';
+              }, 1000);
+            </script>
+          </head>
+          <body>
+            <div class="loader">
+              <div class="spinner"></div>
+              <p>Loading SBUPost...</p>
+            </div>
+          </body>
+          </html>
+          FALLBACK
 
       - name: Add iOS platform
         run: npx cap add ios
