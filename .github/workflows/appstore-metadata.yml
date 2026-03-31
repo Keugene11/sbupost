@@ -359,7 +359,55 @@ jobs:
             });
             console.log('Build encryption:', setBuildEnc.data ? 'success' : JSON.stringify(setBuildEnc).slice(0, 300));
 
-            // 11. Submit for review (use reviewSubmissions API)
+            // 11. Check what's blocking submission
+            console.log('Checking submission readiness...');
+            // Check the appStoreReviewDetail
+            const reviewDetail = await api('GET', '/appStoreVersions/' + versionId + '/appStoreReviewDetail');
+            console.log('Review detail:', JSON.stringify(reviewDetail).slice(0, 500));
+
+            // If no review detail exists, create one with contact info
+            if (!reviewDetail.data) {
+              const createReviewDetail = await api('POST', '/appStoreReviewDetails', {
+                data: {
+                  type: 'appStoreReviewDetails',
+                  attributes: {
+                    contactFirstName: 'Keugene',
+                    contactLastName: 'Lee',
+                    contactEmail: 'keugenelee11@gmail.com',
+                    contactPhone: '+1-000-000-0000',
+                    notes: 'SBUPost is a social networking app for Stony Brook University students. To test, you can sign up with any email or use Google Sign In.'
+                  },
+                  relationships: {
+                    appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } }
+                  }
+                }
+              });
+              console.log('Review detail created:', createReviewDetail.data ? 'success' : JSON.stringify(createReviewDetail).slice(0, 300));
+            }
+
+            // Check content rights
+            const appInfo = await api('GET', '/apps/' + appId + '/appInfos');
+            if (appInfo.data && appInfo.data.length > 0) {
+              const infoId = appInfo.data[0].id;
+              const infoLocales = await api('GET', '/appInfos/' + infoId + '/appInfoLocalizations');
+              console.log('App info locales:', JSON.stringify(infoLocales.data?.map(d => d.attributes) || []).slice(0, 500));
+
+              // Check if privacy URL is set on app info
+              if (infoLocales.data && infoLocales.data.length > 0) {
+                const infoLocaleId = infoLocales.data[0].id;
+                const updateInfoLocale = await api('PATCH', '/appInfoLocalizations/' + infoLocaleId, {
+                  data: {
+                    type: 'appInfoLocalizations',
+                    id: infoLocaleId,
+                    attributes: {
+                      privacyPolicyUrl: 'https://sbupost.vercel.app/privacy'
+                    }
+                  }
+                });
+                console.log('Privacy URL set:', updateInfoLocale.data ? 'success' : JSON.stringify(updateInfoLocale).slice(0, 300));
+              }
+            }
+
             console.log('Submitting for review...');
             // First try the newer reviewSubmissions endpoint
             // Step 1: Create review submission
