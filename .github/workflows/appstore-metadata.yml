@@ -317,7 +317,16 @@ jobs:
               console.log('No valid builds found. Builds response:', JSON.stringify(builds).slice(0, 300));
             }
 
-            // 10. Submit for review (use reviewSubmissions API)
+            // 10. Check version readiness
+            console.log('Checking version readiness...');
+            const versionDetail = await api('GET', '/appStoreVersions/' + versionId + '?include=appStoreVersionSubmission&fields[appStoreVersions]=appStoreState,versionString,createdDate');
+            console.log('Version state:', JSON.stringify(versionDetail.data?.attributes || {}).slice(0, 200));
+
+            // Check for missing required items
+            const versionErrors = await api('GET', '/appStoreVersions/' + versionId + '?fields[appStoreVersions]=appStoreState');
+            console.log('Version info:', JSON.stringify(versionErrors).slice(0, 500));
+
+            // 11. Submit for review (use reviewSubmissions API)
             console.log('Submitting for review...');
             // First try the newer reviewSubmissions endpoint
             // Step 1: Create review submission
