@@ -33,14 +33,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // If logged in with a non-stonybrook.edu email, sign them out
-  if (user && !user.email?.endsWith('@stonybrook.edu')) {
-    await supabase.auth.signOut()
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('error', 'You must use a @stonybrook.edu email address')
-    return NextResponse.redirect(url)
-  }
+  // TODO: Re-enable @stonybrook.edu email restriction before launch
+  // if (user && !user.email?.endsWith('@stonybrook.edu')) {
+  //   await supabase.auth.signOut()
+  //   const url = request.nextUrl.clone()
+  //   url.pathname = '/login'
+  //   url.searchParams.set('error', 'You must use a @stonybrook.edu email address')
+  //   return NextResponse.redirect(url)
+  // }
 
   // If not logged in and not on auth pages, redirect to login
   if (

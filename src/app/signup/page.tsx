@@ -49,11 +49,12 @@ export default function SignupPage() {
       return
     }
 
-    if (!email.endsWith('@stonybrook.edu')) {
-      setError('You must use a @stonybrook.edu email address')
-      setLoading(false)
-      return
-    }
+    // TODO: Re-enable @stonybrook.edu email restriction before launch
+    // if (!email.endsWith('@stonybrook.edu')) {
+    //   setError('You must use a @stonybrook.edu email address')
+    //   setLoading(false)
+    //   return
+    // }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
