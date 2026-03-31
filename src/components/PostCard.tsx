@@ -35,7 +35,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
   const [newComment, setNewComment] = useState('')
   const [loadingComments, setLoadingComments] = useState(false)
   const [sending, setSending] = useState(false)
-  const [impressions, setImpressions] = useState(post.post_impressions?.[0]?.count ?? 0)
+  const [impressions, setImpressions] = useState(post.post_impressions?.length ?? 0)
   const cardRef = useRef<HTMLDivElement>(null)
   const impressionRecorded = useRef(false)
   const isOwn = currentUserId === post.user_id
