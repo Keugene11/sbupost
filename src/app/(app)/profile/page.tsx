@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Post } from '@/types'
 import { useRouter } from 'next/navigation'
-import { LogOut, Loader2, User, Camera, Check } from 'lucide-react'
+import { LogOut, Loader2, User, Camera, Check, Trash2 } from 'lucide-react'
 import PostCard from '@/components/PostCard'
 import Autocomplete from '@/components/Autocomplete'
 import CourseSelect from '@/components/CourseSelect'
@@ -23,6 +23,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Editable fields
   const [fullName, setFullName] = useState('')
@@ -186,6 +188,22 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await supabaseRef.current.auth.signOut()
     window.location.href = '/login'
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/delete-account', { method: 'DELETE' })
+      if (res.ok) {
+        window.location.href = '/login'
+      } else {
+        alert('Failed to delete account. Please try again.')
+        setDeleting(false)
+      }
+    } catch {
+      alert('Failed to delete account. Please try again.')
+      setDeleting(false)
+    }
   }
 
   const handlePostDeleted = (postId: string) => {
@@ -386,6 +404,40 @@ export default function ProfilePage() {
           ))}
         </div>
       )}
+
+      <div className="mt-10 mb-6 border-t border-border pt-6">
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 text-red-500 text-[14px] font-medium press"
+          >
+            <Trash2 size={16} />
+            Delete Account
+          </button>
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 animate-slide-up">
+            <p className="text-[14px] text-red-700 font-medium mb-3">
+              Are you sure? This will permanently delete your account and all your data.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-semibold text-[14px] press flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete My Account'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 bg-bg-card border border-border py-2.5 rounded-xl font-semibold text-[14px] press disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {showFollowList && profile && (
         <FollowListModal
