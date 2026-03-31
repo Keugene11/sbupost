@@ -14,11 +14,29 @@ export default function FeedPage() {
   const supabase = useRef(createClient()).current
 
   const fetchPosts = useCallback(async () => {
-    const { data } = await supabase
+    // Get blocked users list to filter them out
+    const { data: { user } } = await supabase.auth.getUser()
+    let blockedIds: string[] = []
+    if (user) {
+      const { data: blocked } = await supabase
+        .from('blocked_users')
+        .select('blocked_id')
+        .eq('blocker_id', user.id)
+      if (blocked) blockedIds = blocked.map((b) => b.blocked_id)
+    }
+
+    let query = supabase
       .from('posts')
       .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)')
       .order('created_at', { ascending: false })
       .limit(50)
+
+    if (blockedIds.length > 0) {
+      // Filter out posts from blocked users
+      query = query.not('user_id', 'in', `(${blockedIds.join(',')})`)
+    }
+
+    const { data } = await query
 
     if (data) setPosts(data as Post[])
     setLoading(false)

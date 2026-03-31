@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Post } from '@/types'
-import { Heart, Trash2, User, MessageCircle, Send, Eye } from 'lucide-react'
+import { Heart, Trash2, User, MessageCircle, Send, Eye, Flag } from 'lucide-react'
+import ReportModal from '@/components/ReportModal'
 import { formatDistanceToNow } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -36,6 +37,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
   const [loadingComments, setLoadingComments] = useState(false)
   const [sending, setSending] = useState(false)
   const [impressions, setImpressions] = useState(post.post_impressions?.length ?? 0)
+  const [showReport, setShowReport] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const impressionRecorded = useRef(false)
   const isOwn = currentUserId === post.user_id
@@ -194,6 +196,14 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
               <Eye size={16} />
               {impressions > 0 && impressions}
             </span>
+            {!isOwn && (
+              <button
+                onClick={() => setShowReport(true)}
+                className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-red-500 transition-colors press ml-auto"
+              >
+                <Flag size={15} />
+              </button>
+            )}
             {isOwn && !showDeleteConfirm && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
@@ -272,6 +282,14 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
           )}
         </div>
       </div>
+      {showReport && (
+        <ReportModal
+          type="post"
+          targetId={post.id}
+          targetUserId={post.user_id}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   )
 }

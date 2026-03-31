@@ -4,10 +4,11 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Post } from '@/types'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, User, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, User, MessageCircle, Flag, Ban } from 'lucide-react'
 import PostCard from '@/components/PostCard'
 import Image from 'next/image'
 import FollowListModal from '@/components/FollowListModal'
+import ReportModal from '@/components/ReportModal'
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +20,9 @@ export default function UserProfilePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
+  const [showReport, setShowReport] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
   const supabase = useRef(createClient()).current
   const router = useRouter()
 
@@ -33,12 +37,13 @@ export default function UserProfilePage() {
       }
     }
 
-    const [profileRes, postsRes, followersRes, followingRes, isFollowingRes] = await Promise.all([
+    const [profileRes, postsRes, followersRes, followingRes, isFollowingRes, blockedRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', id).single(),
       supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', id).order('created_at', { ascending: false }),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
       user ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id) : Promise.resolve({ data: [] }),
+      user ? supabase.from('blocked_users').select('*').eq('blocker_id', user.id).eq('blocked_id', id) : Promise.resolve({ data: [] }),
     ])
 
     if (profileRes.data) setProfile(profileRes.data)
@@ -46,6 +51,7 @@ export default function UserProfilePage() {
     setFollowers(followersRes.count ?? 0)
     setFollowing(followingRes.count ?? 0)
     setIsFollowing((isFollowingRes.data?.length ?? 0) > 0)
+    setIsBlocked((blockedRes.data?.length ?? 0) > 0)
     setLoading(false)
 
     // Record profile view
@@ -96,6 +102,19 @@ export default function UserProfilePage() {
         router.push(`/messages/${newConvo.id}`)
       }
     }
+  }
+
+  const handleBlock = async () => {
+    if (!currentUserId) return
+    setBlockLoading(true)
+    if (isBlocked) {
+      await supabase.from('blocked_users').delete().match({ blocker_id: currentUserId, blocked_id: id })
+      setIsBlocked(false)
+    } else {
+      await supabase.from('blocked_users').insert({ blocker_id: currentUserId, blocked_id: id })
+      setIsBlocked(true)
+    }
+    setBlockLoading(false)
   }
 
   if (loading) {
@@ -167,6 +186,21 @@ export default function UserProfilePage() {
             className="border border-border rounded-xl px-4 py-2.5 press"
           >
             <MessageCircle size={18} />
+          </button>
+          <button
+            onClick={handleBlock}
+            disabled={blockLoading}
+            className={`border border-border rounded-xl px-4 py-2.5 press ${isBlocked ? 'bg-red-50 border-red-200' : ''}`}
+            title={isBlocked ? 'Unblock' : 'Block'}
+          >
+            <Ban size={18} className={isBlocked ? 'text-red-500' : ''} />
+          </button>
+          <button
+            onClick={() => setShowReport(true)}
+            className="border border-border rounded-xl px-4 py-2.5 press"
+            title="Report"
+          >
+            <Flag size={18} />
           </button>
         </div>
 
@@ -240,6 +274,14 @@ export default function UserProfilePage() {
           userId={id}
           type={showFollowList}
           onClose={() => setShowFollowList(null)}
+        />
+      )}
+
+      {showReport && (
+        <ReportModal
+          type="user"
+          targetId={id}
+          onClose={() => setShowReport(false)}
         />
       )}
     </div>
