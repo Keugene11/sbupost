@@ -32,7 +32,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="font-bold text-[16px] mb-2">6. Contact</h2>
-          <p>For questions about this privacy policy, contact us at support@sbupost.app.</p>
+          <p>For questions about this privacy policy, contact us at keugenelee11@gmail.com.</p>
         </section>
       </div>
     </div>

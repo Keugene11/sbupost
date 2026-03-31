@@ -71,7 +71,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="font-bold text-[16px] mb-2">11. Contact</h2>
-          <p>For questions about these Terms of Service, contact us at <a href="mailto:support@sbupost.app" className="text-accent font-semibold underline">support@sbupost.app</a>.</p>
+          <p>For questions about these Terms of Service, contact us at <a href="mailto:keugenelee11@gmail.com" className="text-accent font-semibold underline">keugenelee11@gmail.com</a>.</p>
         </section>
       </div>
     </div>

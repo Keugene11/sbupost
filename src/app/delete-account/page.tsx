@@ -8,7 +8,7 @@ export default function DeleteAccountPage() {
           <h2 className="font-bold text-[16px] mb-2">How to Delete Your Account</h2>
           <p>To request deletion of your SBUPost account and all associated data, please follow these steps:</p>
           <ol className="list-decimal ml-5 mt-2 space-y-2">
-            <li>Send an email to <strong>support@sbupost.app</strong> from the email address associated with your account.</li>
+            <li>Send an email to <strong>keugenelee11@gmail.com</strong> from the email address associated with your account.</li>
             <li>Use the subject line: <strong>Account Deletion Request</strong></li>
             <li>Include your full name and the email you used to sign up.</li>
           </ol>
@@ -35,7 +35,7 @@ export default function DeleteAccountPage() {
 
         <section>
           <h2 className="font-bold text-[16px] mb-2">Contact</h2>
-          <p>For questions, email <strong>support@sbupost.app</strong></p>
+          <p>For questions, email <strong>keugenelee11@gmail.com</strong></p>
         </section>
       </div>
     </div>
