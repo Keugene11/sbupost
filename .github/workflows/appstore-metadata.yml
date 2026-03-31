@@ -417,8 +417,11 @@ jobs:
                 const state = sub.attributes?.state;
                 console.log('Found submission:', sub.id, state);
                 if (state !== 'IN_REVIEW' && state !== 'COMPLETE') {
-                  const delResult = await api('DELETE', '/reviewSubmissions/' + sub.id);
-                  console.log('Deleted:', sub.id, typeof delResult === 'string' ? 'success' : JSON.stringify(delResult).slice(0, 200));
+                  // Cancel the submission first
+                  const cancelResult = await api('PATCH', '/reviewSubmissions/' + sub.id, {
+                    data: { type: 'reviewSubmissions', id: sub.id, attributes: { canceled: true } }
+                  });
+                  console.log('Cancelled:', sub.id, cancelResult.data ? 'success' : JSON.stringify(cancelResult).slice(0, 200));
                 }
               }
             }
