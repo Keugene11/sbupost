@@ -412,7 +412,15 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="mt-10 mb-6 border-t border-border pt-6">
+      <div className="mt-8 mb-4 flex items-center justify-center gap-4 text-[13px] text-text-muted">
+        <a href="mailto:keugenelee11@gmail.com" className="hover:text-text transition-colors">Support</a>
+        <span>·</span>
+        <a href="/privacy" className="hover:text-text transition-colors">Privacy</a>
+        <span>·</span>
+        <a href="/terms" className="hover:text-text transition-colors">Terms</a>
+      </div>
+
+      <div className="mb-6 border-t border-border pt-6">
         {!showDeleteConfirm ? (
           <button
             onClick={() => setShowDeleteConfirm(true)}

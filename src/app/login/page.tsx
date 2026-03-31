@@ -128,7 +128,13 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <p className="text-center text-[13px] text-text-muted mt-5">
+        <p className="text-center text-[11px] text-text-muted/60 mt-4">
+          By continuing, you agree to our{' '}
+          <Link href="/terms" className="underline">Terms</Link> and{' '}
+          <Link href="/privacy" className="underline">Privacy Policy</Link>
+        </p>
+
+        <p className="text-center text-[13px] text-text-muted mt-3">
           Don&apos;t have an account?{' '}
           <Link href="/signup" className="text-accent font-semibold">
             Sign Up
