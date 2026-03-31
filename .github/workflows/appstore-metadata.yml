@@ -374,7 +374,7 @@ jobs:
                     contactFirstName: 'Keugene',
                     contactLastName: 'Lee',
                     contactEmail: 'keugenelee11@gmail.com',
-                    contactPhone: '+16310000000',
+                    contactPhone: '+1 631 000 0000',
                     notes: 'SBUPost is a social networking app for Stony Brook University students. To test, you can sign up with any email or use Google Sign In.'
                   },
                   relationships: {
@@ -409,7 +409,15 @@ jobs:
             }
 
             console.log('Submitting for review...');
-            // First try the newer reviewSubmissions endpoint
+            // Clean up any existing pending review submissions
+            const existingSubs = await api('GET', '/apps/' + appId + '/reviewSubmissions?filter[state]=WAITING_FOR_REVIEW,UNRESOLVED,READY_FOR_REVIEW');
+            if (existingSubs.data) {
+              for (const sub of existingSubs.data) {
+                console.log('Cancelling existing submission:', sub.id, sub.attributes?.state);
+                await api('DELETE', '/reviewSubmissions/' + sub.id);
+              }
+            }
+
             // Step 1: Create review submission
             let submitResult = await api('POST', '/reviewSubmissions', {
               data: {
