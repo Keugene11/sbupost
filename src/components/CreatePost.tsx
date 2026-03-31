@@ -44,6 +44,7 @@ export default function CreatePost({ onPostCreated }: { onPostCreated: () => voi
   }
 
   const removeFile = (index: number) => {
+    URL.revokeObjectURL(previews[index].url)
     setFiles((prev) => prev.filter((_, i) => i !== index))
     setPreviews((prev) => prev.filter((_, i) => i !== index))
   }

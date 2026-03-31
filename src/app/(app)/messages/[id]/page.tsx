@@ -31,33 +31,38 @@ export default function ChatPage() {
   }
 
   const fetchMessages = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setCurrentUserId(user.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setCurrentUserId(user.id)
 
-    const { data: convo } = await supabase
-      .from('conversations')
-      .select(`
-        user1_id, user2_id,
-        user1:profiles!conversations_user1_id_fkey(id, full_name, avatar_url),
-        user2:profiles!conversations_user2_id_fkey(id, full_name, avatar_url)
-      `)
-      .eq('id', conversationId)
-      .single()
+      const { data: convo } = await supabase
+        .from('conversations')
+        .select(`
+          user1_id, user2_id,
+          user1:profiles!conversations_user1_id_fkey(id, full_name, avatar_url),
+          user2:profiles!conversations_user2_id_fkey(id, full_name, avatar_url)
+        `)
+        .eq('id', conversationId)
+        .single()
 
-    if (convo) {
-      const other = convo.user1_id === user.id ? convo.user2 : convo.user1
-      setOtherUser(other as unknown as OtherUser)
+      if (convo) {
+        const other = convo.user1_id === user.id ? convo.user2 : convo.user1
+        setOtherUser(other as unknown as OtherUser)
+      }
+
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+
+      if (msgs) setMessages(msgs)
+    } catch {
+      // Silently handle - messages will show empty
+    } finally {
+      setLoading(false)
     }
-
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-
-    if (msgs) setMessages(msgs)
-    setLoading(false)
   }, [supabase, conversationId])
 
   useEffect(() => {
@@ -101,8 +106,9 @@ export default function ChatPage() {
     const messageContent = newMessage.trim()
     setNewMessage('')
 
+    const tempId = crypto.randomUUID()
     const tempMsg: Message = {
-      id: crypto.randomUUID(),
+      id: tempId,
       conversation_id: conversationId,
       sender_id: currentUserId,
       content: messageContent,
@@ -110,16 +116,26 @@ export default function ChatPage() {
     }
     setMessages((prev) => [...prev, tempMsg])
 
-    await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      sender_id: currentUserId,
-      content: messageContent,
-    })
+    try {
+      const { error } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+        content: messageContent,
+      })
 
-    await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', conversationId)
+      if (error) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId))
+        setNewMessage(messageContent)
+      } else {
+        await supabase
+          .from('conversations')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', conversationId)
+      }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId))
+      setNewMessage(messageContent)
+    }
 
     setSending(false)
   }
@@ -140,7 +156,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-bg flex flex-col max-w-md mx-auto">
+    <div className="fixed inset-0 z-40 bg-bg flex flex-col max-w-md md:max-w-xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-bg shrink-0">
         <button onClick={() => router.back()} className="press">

@@ -22,17 +22,21 @@ export default function SearchPage() {
     }
 
     setSearched(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(`full_name.ilike.%${q}%,major.ilike.%${q}%,clubs.ilike.%${q}%,courses.ilike.%${q}%`)
-      .limit(20)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`full_name.ilike.%${q}%,major.ilike.%${q}%,clubs.ilike.%${q}%,courses.ilike.%${q}%`)
+        .limit(20)
 
-    if (data) setResults(data)
+      if (data) setResults(data)
+    } catch {
+      setResults([])
+    }
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
+    <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6">
       <h1 className="text-[24px] font-extrabold tracking-tight mb-4">Search</h1>
 
       <div className="relative mb-4 animate-slide-up">

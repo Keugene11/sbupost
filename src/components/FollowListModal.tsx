@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
 import { X, User, Loader2 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 interface FollowListModalProps {
   userId: string
@@ -63,7 +64,7 @@ export default function FollowListModal({ userId, type, onClose }: FollowListMod
         ) : (
           <div className="overflow-y-auto space-y-2">
             {profiles.map((p) => (
-              <a
+              <Link
                 key={p.id}
                 href={`/profile/${p.id}`}
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-bg-card-hover transition-colors press"
@@ -79,7 +80,7 @@ export default function FollowListModal({ userId, type, onClose }: FollowListMod
                   <p className="font-semibold text-[14px] truncate">{p.full_name || 'Anonymous'}</p>
                   {p.major && <p className="text-[12px] text-text-muted truncate">{p.major}</p>}
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         )}

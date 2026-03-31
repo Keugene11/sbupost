@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, User } from 'lucide-react'
 import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
+import Link from 'next/link'
 
 interface Viewer {
   viewer_id: string
@@ -77,7 +78,7 @@ export default function ProfileViewers({ userId }: { userId: string }) {
       {expanded && (
         <div className="space-y-2 mt-3">
           {viewers.map((v) => (
-            <a
+            <Link
               key={v.viewer_id}
               href={`/profile/${v.viewer_id}`}
               className="flex items-center gap-3 py-1.5 press"
@@ -96,7 +97,7 @@ export default function ProfileViewers({ userId }: { userId: string }) {
               <span className="text-[11px] text-text-muted shrink-0">
                 {formatDistanceToNow(new Date(v.viewed_at), { addSuffix: true })}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       )}

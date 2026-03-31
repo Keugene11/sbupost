@@ -27,39 +27,44 @@ export default function UserProfilePage() {
   const router = useRouter()
 
   const fetchData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      setCurrentUserId(user.id)
-      // If viewing own profile, redirect
-      if (user.id === id) {
-        router.push('/profile')
-        return
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUserId(user.id)
+        // If viewing own profile, redirect
+        if (user.id === id) {
+          router.push('/profile')
+          return
+        }
       }
-    }
 
-    const [profileRes, postsRes, followersRes, followingRes, isFollowingRes, blockedRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', id).single(),
-      supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', id).order('created_at', { ascending: false }),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
-      user ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id) : Promise.resolve({ data: [] }),
-      user ? supabase.from('blocked_users').select('*').eq('blocker_id', user.id).eq('blocked_id', id) : Promise.resolve({ data: [] }),
-    ])
+      const [profileRes, postsRes, followersRes, followingRes, isFollowingRes, blockedRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', id).single(),
+        supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', id).order('created_at', { ascending: false }),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+        user ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id) : Promise.resolve({ data: [] }),
+        user ? supabase.from('blocked_users').select('*').eq('blocker_id', user.id).eq('blocked_id', id) : Promise.resolve({ data: [] }),
+      ])
 
-    if (profileRes.data) setProfile(profileRes.data)
-    if (postsRes.data) setPosts(postsRes.data as Post[])
-    setFollowers(followersRes.count ?? 0)
-    setFollowing(followingRes.count ?? 0)
-    setIsFollowing((isFollowingRes.data?.length ?? 0) > 0)
-    setIsBlocked((blockedRes.data?.length ?? 0) > 0)
-    setLoading(false)
+      if (profileRes.data) setProfile(profileRes.data)
+      if (postsRes.data) setPosts(postsRes.data as Post[])
+      setFollowers(followersRes.count ?? 0)
+      setFollowing(followingRes.count ?? 0)
+      setIsFollowing((isFollowingRes.data?.length ?? 0) > 0)
+      setIsBlocked((blockedRes.data?.length ?? 0) > 0)
 
-    // Record profile view
-    if (user) {
-      await supabase.from('profile_views').upsert(
-        { profile_id: id, viewer_id: user.id, viewed_at: new Date().toISOString() },
-        { onConflict: 'profile_id,viewer_id' }
-      )
+      // Record profile view
+      if (user) {
+        await supabase.from('profile_views').upsert(
+          { profile_id: id, viewer_id: user.id, viewed_at: new Date().toISOString() },
+          { onConflict: 'profile_id,viewer_id' }
+        )
+      }
+    } catch {
+      // Profile load failed - will show "User not found"
+    } finally {
+      setLoading(false)
     }
   }, [supabase, id, router])
 
@@ -69,38 +74,49 @@ export default function UserProfilePage() {
 
   const handleFollow = async () => {
     if (!currentUserId) return
-    if (isFollowing) {
-      setIsFollowing(false)
-      setFollowers((f) => f - 1)
-      await supabase.from('follows').delete().match({ follower_id: currentUserId, following_id: id })
-    } else {
-      setIsFollowing(true)
-      setFollowers((f) => f + 1)
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: id })
+    const wasFollowing = isFollowing
+    const prevFollowers = followers
+    try {
+      if (isFollowing) {
+        setIsFollowing(false)
+        setFollowers((f) => f - 1)
+        await supabase.from('follows').delete().match({ follower_id: currentUserId, following_id: id })
+      } else {
+        setIsFollowing(true)
+        setFollowers((f) => f + 1)
+        await supabase.from('follows').insert({ follower_id: currentUserId, following_id: id })
+      }
+    } catch {
+      setIsFollowing(wasFollowing)
+      setFollowers(prevFollowers)
     }
   }
 
   const handleMessage = async () => {
     if (!currentUserId) return
-    // Check if conversation exists
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`and(user1_id.eq.${currentUserId},user2_id.eq.${id}),and(user1_id.eq.${id},user2_id.eq.${currentUserId})`)
-      .single()
-
-    if (existing) {
-      router.push(`/messages/${existing.id}`)
-    } else {
-      const { data: newConvo } = await supabase
+    try {
+      // Check if conversation exists
+      const { data: existing } = await supabase
         .from('conversations')
-        .insert({ user1_id: currentUserId, user2_id: id })
         .select('id')
+        .or(`and(user1_id.eq.${currentUserId},user2_id.eq.${id}),and(user1_id.eq.${id},user2_id.eq.${currentUserId})`)
         .single()
 
-      if (newConvo) {
-        router.push(`/messages/${newConvo.id}`)
+      if (existing) {
+        router.push(`/messages/${existing.id}`)
+      } else {
+        const { data: newConvo } = await supabase
+          .from('conversations')
+          .insert({ user1_id: currentUserId, user2_id: id })
+          .select('id')
+          .single()
+
+        if (newConvo) {
+          router.push(`/messages/${newConvo.id}`)
+        }
       }
+    } catch {
+      // Failed to create/find conversation
     }
   }
 
@@ -127,14 +143,14 @@ export default function UserProfilePage() {
 
   if (!profile) {
     return (
-      <div className="max-w-md mx-auto px-4 pt-6 text-center">
+      <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6 text-center">
         <p className="text-text-muted">User not found</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
+    <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6">
       <button onClick={() => router.back()} className="mb-4 press">
         <ArrowLeft size={22} />
       </button>

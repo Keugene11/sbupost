@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Heart, UserPlus, MessageCircle, Loader2, User } from 'lucide-react'
+import Link from 'next/link'
 import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -28,25 +29,30 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function fetch() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-      const { data } = await supabase
-        .from('notifications')
-        .select('*, actor:profiles!notifications_actor_id_fkey(id, full_name, avatar_url)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50)
+        const { data } = await supabase
+          .from('notifications')
+          .select('*, actor:profiles!notifications_actor_id_fkey(id, full_name, avatar_url)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50)
 
-      if (data) setNotifications(data as unknown as Notification[])
-      setLoading(false)
+        if (data) setNotifications(data as unknown as Notification[])
 
-      // Mark all as read
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false)
+        // Mark all as read
+        await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('user_id', user.id)
+          .eq('read', false)
+      } catch {
+        // Notifications load failed - will show empty
+      } finally {
+        setLoading(false)
+      }
     }
     fetch()
   }, [supabase])
@@ -60,7 +66,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
+    <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6">
       <h1 className="text-[24px] font-extrabold tracking-tight mb-4">Notifications</h1>
 
       {notifications.length === 0 ? (
@@ -68,7 +74,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-2 stagger">
           {notifications.map((notif) => (
-            <a
+            <Link
               key={notif.id}
               href={notif.type === 'like' && notif.post_id ? `/feed` : `/profile/${notif.actor_id}`}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-colors press ${
@@ -100,7 +106,7 @@ export default function NotificationsPage() {
                 {notif.type === 'comment' && <MessageCircle size={18} className="text-green-500" />}
                 {notif.type === 'follow' && <UserPlus size={18} className="text-blue-500" />}
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       )}

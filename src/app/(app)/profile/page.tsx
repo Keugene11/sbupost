@@ -49,37 +49,42 @@ export default function ProfilePage() {
   useEffect(() => {
     const supabase = supabaseRef.current
     async function fetchProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-      const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
-      ])
+        const [profileRes, postsRes, followersRes, followingRes] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
+          supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
+        ])
 
-      if (profileRes.data) {
-        const p = profileRes.data
-        setProfile(p)
-        setFullName(p.full_name || '')
-        setBio(p.bio || '')
-        setMajor(p.major || '')
-        setSecondMajor(p.second_major || '')
-        setMinor(p.minor || '')
-        setClubs(p.clubs || '')
-        setCourses(p.courses || '')
-        setRelationshipStatus(p.relationship_status || '')
-        setResidenceHall(p.residence_hall || '')
-        setMealPlan(p.meal_plan || '')
-        setUsername(p.username || '')
-        setUsernameChangedAt(p.username_changed_at)
-        setAvatarUrl(p.avatar_url)
+        if (profileRes.data) {
+          const p = profileRes.data
+          setProfile(p)
+          setFullName(p.full_name || '')
+          setBio(p.bio || '')
+          setMajor(p.major || '')
+          setSecondMajor(p.second_major || '')
+          setMinor(p.minor || '')
+          setClubs(p.clubs || '')
+          setCourses(p.courses || '')
+          setRelationshipStatus(p.relationship_status || '')
+          setResidenceHall(p.residence_hall || '')
+          setMealPlan(p.meal_plan || '')
+          setUsername(p.username || '')
+          setUsernameChangedAt(p.username_changed_at)
+          setAvatarUrl(p.avatar_url)
+        }
+        if (postsRes.data) setPosts(postsRes.data as Post[])
+        setFollowers(followersRes.count ?? 0)
+        setFollowing(followingRes.count ?? 0)
+      } catch {
+        // Profile load failed - page will show loading state then empty
+      } finally {
+        setLoading(false)
       }
-      if (postsRes.data) setPosts(postsRes.data as Post[])
-      setFollowers(followersRes.count ?? 0)
-      setFollowing(followingRes.count ?? 0)
-      setLoading(false)
     }
     fetchProfile()
   }, [])
@@ -178,11 +183,13 @@ export default function ProfilePage() {
 
     const fileName = `avatars/${user.id}/${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('post-images').upload(fileName, file)
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-      setAvatarUrl(urlData.publicUrl)
-      autoSave({ avatar_url: urlData.publicUrl })
+    if (error) {
+      alert('Failed to upload photo. Please try again.')
+      return
     }
+    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
+    setAvatarUrl(urlData.publicUrl)
+    autoSave({ avatar_url: urlData.publicUrl })
   }
 
   const handleLogout = async () => {
@@ -221,7 +228,7 @@ export default function ProfilePage() {
   const inputClass = "w-full bg-bg-card border border-border rounded-xl px-3 py-2 text-[14px] placeholder:text-text-muted/50 outline-none focus:border-text-muted transition-colors"
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
+    <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-[24px] font-extrabold tracking-tight">Profile</h1>
         <div className="flex items-center gap-2">

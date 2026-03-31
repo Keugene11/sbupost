@@ -23,46 +23,53 @@ interface ConversationWithProfile {
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationWithProfile[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const supabase = useRef(createClient()).current
 
   const fetchConversations = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      setError(false)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const { data } = await supabase
-      .from('conversations')
-      .select(`
-        id, user1_id, user2_id, last_message_at,
-        user1:profiles!conversations_user1_id_fkey(id, full_name, avatar_url),
-        user2:profiles!conversations_user2_id_fkey(id, full_name, avatar_url)
-      `)
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-      .order('last_message_at', { ascending: false })
+      const { data } = await supabase
+        .from('conversations')
+        .select(`
+          id, user1_id, user2_id, last_message_at,
+          user1:profiles!conversations_user1_id_fkey(id, full_name, avatar_url),
+          user2:profiles!conversations_user2_id_fkey(id, full_name, avatar_url)
+        `)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .order('last_message_at', { ascending: false })
 
-    if (data) {
-      const convos: ConversationWithProfile[] = []
-      for (const c of data) {
-        const otherUser = c.user1_id === user.id ? c.user2 : c.user1
-        // Fetch last message
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('conversation_id', c.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
+      if (data) {
+        const convos: ConversationWithProfile[] = []
+        for (const c of data) {
+          const otherUser = c.user1_id === user.id ? c.user2 : c.user1
+          // Fetch last message
+          const { data: msgs } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('conversation_id', c.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
 
-        convos.push({
-          id: c.id,
-          user1_id: c.user1_id,
-          user2_id: c.user2_id,
-          last_message_at: c.last_message_at,
-          other_user: otherUser as unknown as { id: string; full_name: string; avatar_url: string | null },
-          last_message: msgs?.[0]?.content,
-        })
+          convos.push({
+            id: c.id,
+            user1_id: c.user1_id,
+            user2_id: c.user2_id,
+            last_message_at: c.last_message_at,
+            other_user: otherUser as unknown as { id: string; full_name: string; avatar_url: string | null },
+            last_message: msgs?.[0]?.content,
+          })
+        }
+        setConversations(convos)
       }
-      setConversations(convos)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [supabase])
 
   useEffect(() => {
@@ -78,10 +85,15 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
+    <div className="max-w-md md:max-w-xl mx-auto px-4 pt-6">
       <h1 className="text-[24px] font-extrabold tracking-tight mb-4">Messages</h1>
 
-      {conversations.length === 0 ? (
+      {error ? (
+        <div className="text-center py-12">
+          <p className="text-text-muted text-[14px] mb-3">Failed to load conversations.</p>
+          <button onClick={fetchConversations} className="text-[14px] font-semibold text-accent press">Tap to retry</button>
+        </div>
+      ) : conversations.length === 0 ? (
         <div className="text-center py-12 text-text-muted text-[14px]">
           No conversations yet. Visit someone&apos;s profile to start a chat!
         </div>
