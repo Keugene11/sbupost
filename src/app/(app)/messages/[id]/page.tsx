@@ -144,10 +144,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto flex flex-col h-screen">
+    <div className="max-w-md mx-auto flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-bg sticky top-0 z-10">
-        <button onClick={() => router.push('/messages')} className="press">
+        <button onClick={() => router.back()} className="press">
           <ArrowLeft size={22} />
         </button>
         {otherUser && (
@@ -186,7 +186,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-border bg-bg pb-24">
+      <div className="px-4 py-3 border-t border-border bg-bg">
         <div className="flex items-center gap-2">
           <input
             type="text"

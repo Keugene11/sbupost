@@ -76,8 +76,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
     }
   }
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
   const handleDelete = async () => {
-    if (!confirm('Delete this post?')) return
+    setShowDeleteConfirm(false)
     setDeleting(true)
     await supabase.from('posts').delete().eq('id', post.id)
     onDeleted?.(post.id)
@@ -192,14 +194,20 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
               <Eye size={16} />
               {impressions > 0 && impressions}
             </span>
-            {isOwn && (
+            {isOwn && !showDeleteConfirm && (
               <button
-                onClick={handleDelete}
+                onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleting}
                 className="flex items-center gap-1.5 text-[13px] text-text-muted hover:text-red-500 transition-colors press ml-auto"
               >
                 <Trash2 size={15} />
               </button>
+            )}
+            {showDeleteConfirm && (
+              <div className="flex items-center gap-2 ml-auto">
+                <button onClick={handleDelete} className="text-[12px] text-red-500 font-semibold press">Delete</button>
+                <button onClick={() => setShowDeleteConfirm(false)} className="text-[12px] text-text-muted font-medium press">Cancel</button>
+              </div>
             )}
           </div>
 
