@@ -35,7 +35,6 @@ export default function ChatPage() {
     if (!user) return
     setCurrentUserId(user.id)
 
-    // Get conversation details
     const { data: convo } = await supabase
       .from('conversations')
       .select(`
@@ -51,7 +50,6 @@ export default function ChatPage() {
       setOtherUser(other as unknown as OtherUser)
     }
 
-    // Get messages
     const { data: msgs } = await supabase
       .from('messages')
       .select('*')
@@ -70,7 +68,6 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
-  // Real-time subscription
   useEffect(() => {
     const channel = supabase
       .channel(`messages:${conversationId}`)
@@ -104,7 +101,6 @@ export default function ChatPage() {
     const messageContent = newMessage.trim()
     setNewMessage('')
 
-    // Optimistic update
     const tempMsg: Message = {
       id: crypto.randomUUID(),
       conversation_id: conversationId,
@@ -144,9 +140,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto flex flex-col" style={{ height: 'calc(100dvh - 4rem)' }}>
+    <div className="fixed inset-0 z-40 bg-bg flex flex-col max-w-md mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-bg sticky top-0 z-10">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-bg shrink-0">
         <button onClick={() => router.back()} className="press">
           <ArrowLeft size={22} />
         </button>
@@ -185,8 +181,8 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-border bg-bg">
+      {/* Input - sits right above bottom nav */}
+      <div className="px-4 py-2 border-t border-border bg-bg shrink-0 mb-[60px]">
         <div className="flex items-center gap-2">
           <input
             type="text"
