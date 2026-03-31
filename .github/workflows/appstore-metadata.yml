@@ -317,14 +317,47 @@ jobs:
               console.log('No valid builds found. Builds response:', JSON.stringify(builds).slice(0, 300));
             }
 
-            // 10. Check version readiness
-            console.log('Checking version readiness...');
-            const versionDetail = await api('GET', '/appStoreVersions/' + versionId + '?include=appStoreVersionSubmission&fields[appStoreVersions]=appStoreState,versionString,createdDate');
-            console.log('Version state:', JSON.stringify(versionDetail.data?.attributes || {}).slice(0, 200));
+            // 10. Set export compliance (no encryption beyond standard HTTPS)
+            console.log('Setting export compliance...');
+            const buildDetail = await api('GET', '/builds/' + builds.data[0].id + '/appEncryptionDeclaration');
+            if (!buildDetail.data) {
+              // Create encryption declaration
+              const encResult = await api('POST', '/appEncryptionDeclarations', {
+                data: {
+                  type: 'appEncryptionDeclarations',
+                  attributes: {
+                    usesEncryption: false
+                  },
+                  relationships: {
+                    app: { data: { type: 'apps', id: appId } }
+                  }
+                }
+              });
+              if (encResult.data) {
+                // Link to build
+                await api('POST', '/builds/' + builds.data[0].id + '/relationships/appEncryptionDeclaration', {
+                  data: { type: 'appEncryptionDeclarations', id: encResult.data.id }
+                });
+                console.log('Export compliance set');
+              } else {
+                console.log('Encryption declaration:', JSON.stringify(encResult).slice(0, 300));
+                // Try alternative: set usesNonExemptEncryption on the build
+              }
+            } else {
+              console.log('Export compliance already set');
+            }
 
-            // Check for missing required items
-            const versionErrors = await api('GET', '/appStoreVersions/' + versionId + '?fields[appStoreVersions]=appStoreState');
-            console.log('Version info:', JSON.stringify(versionErrors).slice(0, 500));
+            // Try setting usesNonExemptEncryption directly on build
+            const setBuildEnc = await api('PATCH', '/builds/' + builds.data[0].id, {
+              data: {
+                type: 'builds',
+                id: builds.data[0].id,
+                attributes: {
+                  usesNonExemptEncryption: false
+                }
+              }
+            });
+            console.log('Build encryption:', setBuildEnc.data ? 'success' : JSON.stringify(setBuildEnc).slice(0, 300));
 
             // 11. Submit for review (use reviewSubmissions API)
             console.log('Submitting for review...');
