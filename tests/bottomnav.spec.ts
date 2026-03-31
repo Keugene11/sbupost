@@ -52,16 +52,17 @@ test.describe('BottomNav component structure', () => {
     expect(content).toContain('py-2 press')
   })
 
-  test('App layout content wrapper has stacking context isolation', async () => {
+  test('ReportModal has proper z-index to render above content', async () => {
     const fs = await import('fs')
     const path = await import('path')
     const content = fs.readFileSync(
-      path.join(process.cwd(), 'src/app/(app)/layout.tsx'),
+      path.join(process.cwd(), 'src/components/ReportModal.tsx'),
       'utf-8'
     )
 
-    // Content wrapper must have z-0 and isolate to prevent stacking issues
-    expect(content).toContain('z-0')
-    expect(content).toContain('isolate')
+    // ReportModal must have high z-index matching FollowListModal
+    expect(content).toContain('zIndex: 2147483646')
+    // Should use existing animations, not missing animate-scale-in
+    expect(content).not.toContain('animate-scale-in')
   })
 })

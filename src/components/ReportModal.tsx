@@ -49,9 +49,9 @@ export default function ReportModal({ type, targetId, targetUserId, onClose }: R
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-bg-card border border-border rounded-2xl px-6 py-6 w-full max-w-sm animate-scale-in">
+    <div className="fixed inset-0 flex items-center justify-center px-5" style={{ zIndex: 2147483646 }}>
+      <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-bg-card border border-border rounded-2xl px-6 py-6 w-full max-w-sm animate-slide-up">
         {submitted ? (
           <div className="text-center py-4">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
