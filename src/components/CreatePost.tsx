@@ -68,12 +68,22 @@ export default function CreatePost({ onPostCreated }: { onPostCreated: () => voi
       }
     }
 
-    await supabase.from('posts').insert({
+    const postData: Record<string, unknown> = {
       user_id: user.id,
       content: content.trim(),
       image_url: mediaUrls[0] || null,
-      media_urls: mediaUrls,
-    })
+    }
+    if (mediaUrls.length > 0) {
+      postData.media_urls = mediaUrls
+    }
+
+    const { error: insertError } = await supabase.from('posts').insert(postData)
+
+    if (insertError) {
+      setError('Failed to create post. Please try again.')
+      setLoading(false)
+      return
+    }
 
     setContent('')
     setFiles([])

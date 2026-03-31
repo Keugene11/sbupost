@@ -108,13 +108,13 @@ export default function PostCard({ post, currentUserId, onDeleted }: PostCardPro
   }
 
   // Fetch comment count on mount
-  useState(() => {
+  useEffect(() => {
     supabase
       .from('comments')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', post.id)
       .then(({ count }) => setCommentCount(count ?? 0))
-  })
+  }, [post.id, supabase])
 
   const handleComment = async () => {
     if (!newComment.trim() || !currentUserId) return
