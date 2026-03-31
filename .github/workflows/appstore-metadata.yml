@@ -374,7 +374,7 @@ jobs:
                     contactFirstName: 'Keugene',
                     contactLastName: 'Lee',
                     contactEmail: 'keugenelee11@gmail.com',
-                    contactPhone: '+1 631 000 0000',
+                    contactPhone: '+1 631 555 0100',
                     notes: 'SBUPost is a social networking app for Stony Brook University students. To test, you can sign up with any email or use Google Sign In.'
                   },
                   relationships: {
@@ -409,12 +409,17 @@ jobs:
             }
 
             console.log('Submitting for review...');
-            // Clean up any existing pending review submissions
-            const existingSubs = await api('GET', '/apps/' + appId + '/reviewSubmissions?filter[state]=WAITING_FOR_REVIEW,UNRESOLVED,READY_FOR_REVIEW');
+            // Clean up ALL existing review submissions
+            const existingSubs = await api('GET', '/apps/' + appId + '/reviewSubmissions');
+            console.log('Existing submissions:', existingSubs.data?.length || 0);
             if (existingSubs.data) {
               for (const sub of existingSubs.data) {
-                console.log('Cancelling existing submission:', sub.id, sub.attributes?.state);
-                await api('DELETE', '/reviewSubmissions/' + sub.id);
+                const state = sub.attributes?.state;
+                console.log('Found submission:', sub.id, state);
+                if (state !== 'IN_REVIEW' && state !== 'COMPLETE') {
+                  const delResult = await api('DELETE', '/reviewSubmissions/' + sub.id);
+                  console.log('Deleted:', sub.id, typeof delResult === 'string' ? 'success' : JSON.stringify(delResult).slice(0, 200));
+                }
               }
             }
 
