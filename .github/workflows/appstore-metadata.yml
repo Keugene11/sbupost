@@ -257,7 +257,6 @@ jobs:
                     attributes: {
                       alcoholTobaccoOrDrugUseOrReferences: 'NONE',
                       contests: 'NONE',
-                      gamblingAndContests: false,
                       gambling: false,
                       gamblingSimulated: 'NONE',
                       horrorOrFearThemes: 'NONE',
@@ -319,17 +318,43 @@ jobs:
               console.log('No valid builds found. Builds response:', JSON.stringify(builds).slice(0, 300));
             }
 
-            // 10. Submit for review
+            // 10. Submit for review (use reviewSubmissions API)
             console.log('Submitting for review...');
-            const submitResult = await api('POST', '/appStoreVersionSubmissions', {
+            // First try the newer reviewSubmissions endpoint
+            let submitResult = await api('POST', '/reviewSubmissions', {
               data: {
-                type: 'appStoreVersionSubmissions',
+                type: 'reviewSubmissions',
                 relationships: {
-                  appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } }
+                  app: { data: { type: 'apps', id: appId } }
                 }
               }
             });
-            console.log('Submit result:', submitResult.data ? 'SUBMITTED FOR REVIEW!' : JSON.stringify(submitResult).slice(0, 500));
+
+            if (submitResult.data) {
+              // Now add the version to the submission
+              const submissionId = submitResult.data.id;
+              await api('POST', '/reviewSubmissionItems', {
+                data: {
+                  type: 'reviewSubmissionItems',
+                  relationships: {
+                    appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
+                    reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } }
+                  }
+                }
+              });
+              // Confirm submission
+              const confirmResult = await api('PATCH', '/reviewSubmissions/' + submissionId, {
+                data: {
+                  type: 'reviewSubmissions',
+                  id: submissionId,
+                  attributes: { submitted: true }
+                }
+              });
+              console.log('Submit result:', confirmResult.data ? 'SUBMITTED FOR REVIEW!' : JSON.stringify(confirmResult).slice(0, 500));
+            } else {
+              console.log('Review submission creation response:', JSON.stringify(submitResult).slice(0, 500));
+              // May already be in review or need manual submission
+            }
 
             console.log('Done! App is submitted for App Store review.');
           }
