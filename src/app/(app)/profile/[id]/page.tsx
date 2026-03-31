@@ -35,7 +35,7 @@ export default function UserProfilePage() {
 
     const [profileRes, postsRes, followersRes, followingRes, isFollowingRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', id).single(),
-      supabase.from('posts').select('*, profiles(*), likes(user_id), post_impressions(count)').eq('user_id', id).order('created_at', { ascending: false }),
+      supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)').eq('user_id', id).order('created_at', { ascending: false }),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
       user ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id) : Promise.resolve({ data: [] }),
