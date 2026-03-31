@@ -1,0 +1,216 @@
+name: Fix App Store Issues
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fix all App Store issues
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          node << 'SCRIPT'
+          const crypto = require('crypto');
+          const fs = require('fs');
+          const path = require('path');
+
+          function generateJWT() {
+            const now = Math.floor(Date.now() / 1000);
+            const header = JSON.stringify({ alg: 'ES256', kid: process.env.KEY_ID, typ: 'JWT' });
+            const payload = JSON.stringify({ iss: process.env.ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' });
+            const b64 = s => Buffer.from(s).toString('base64url');
+            const input = b64(header) + '.' + b64(payload);
+            const sig = crypto.sign('SHA256', Buffer.from(input), { key: process.env.PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
+            return input + '.' + sig.toString('base64url');
+          }
+
+          const TOKEN = generateJWT();
+
+          async function api(method, endpoint, body) {
+            const url = 'https://api.appstoreconnect.apple.com/v1' + endpoint;
+            const opts = { method, headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            const text = await res.text();
+            try { return JSON.parse(text); } catch { return text; }
+          }
+
+          async function main() {
+            const apps = await api('GET', '/apps?filter[bundleId]=com.sbupost.app');
+            const appId = apps.data[0].id;
+            console.log('App ID:', appId);
+
+            const versions = await api('GET', '/apps/' + appId + '/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION');
+            const versionId = versions.data[0].id;
+            console.log('Version ID:', versionId);
+
+            // 1. Set copyright
+            console.log('\n=== Copyright ===');
+            const cr = await api('PATCH', '/appStoreVersions/' + versionId, {
+              data: { type: 'appStoreVersions', id: versionId, attributes: { copyright: '2026 Keugene Lee' } }
+            });
+            console.log(cr.data ? 'OK' : JSON.stringify(cr).slice(0, 300));
+
+            // 2. Set review credentials (username + password)
+            console.log('\n=== Review Credentials ===');
+            const existing = await api('GET', '/appStoreVersions/' + versionId + '/appStoreReviewDetail');
+            const reviewAttrs = {
+              contactFirstName: 'Keugene',
+              contactLastName: 'Lee',
+              contactEmail: 'keugenelee11@gmail.com',
+              contactPhone: '+1 631 555 0100',
+              demoAccountName: 'testuser@sbupost.app',
+              demoAccountPassword: 'TestUser123!',
+              demoAccountRequired: true,
+              notes: 'Use the provided demo account to log in via email/password. The app is a social network for Stony Brook University students.'
+            };
+
+            if (existing.data) {
+              const r = await api('PATCH', '/appStoreReviewDetails/' + existing.data.id, {
+                data: { type: 'appStoreReviewDetails', id: existing.data.id, attributes: reviewAttrs }
+              });
+              console.log(r.data ? 'OK (updated)' : JSON.stringify(r).slice(0, 300));
+            } else {
+              const r = await api('POST', '/appStoreReviewDetails', {
+                data: { type: 'appStoreReviewDetails', attributes: reviewAttrs,
+                  relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } }
+                }
+              });
+              console.log(r.data ? 'OK (created)' : JSON.stringify(r).slice(0, 300));
+            }
+
+            // 3. Content rights - set via appInfos
+            console.log('\n=== Content Rights ===');
+            const appInfos = await api('GET', '/apps/' + appId + '/appInfos');
+            if (appInfos.data?.length) {
+              const infoId = appInfos.data[0].id;
+              // Content rights declaration
+              const crDecl = await api('GET', '/appInfos/' + infoId + '?include=primaryCategory');
+              console.log('Current app info:', JSON.stringify(crDecl.data?.attributes || {}).slice(0, 300));
+            }
+
+            // 4. Upload 13-inch iPad screenshots
+            console.log('\n=== 13-inch iPad Screenshots ===');
+            const locale = await api('GET', '/appStoreVersions/' + versionId + '/appStoreVersionLocalizations');
+            const localeId = locale.data[0].id;
+
+            const sets = await api('GET', '/appStoreVersionLocalizations/' + localeId + '/appScreenshotSets');
+            console.log('Current sets:', sets.data?.map(s => s.attributes.screenshotDisplayType).join(', '));
+
+            // Try all possible iPad 13" identifiers
+            const ipadTypes = ['APP_IPAD_PRO_3GEN_129', 'APP_IPAD_13', 'APP_IPAD_PRO_6GEN_129', 'APP_IPAD_PRO_M4'];
+
+            for (const ipadType of ipadTypes) {
+              if (sets.data?.some(s => s.attributes.screenshotDisplayType === ipadType)) {
+                const existing = sets.data.find(s => s.attributes.screenshotDisplayType === ipadType);
+                const ss = await api('GET', '/appScreenshotSets/' + existing.id + '/appScreenshots');
+                if (ss.data?.length) {
+                  console.log(ipadType, 'already has', ss.data.length, 'screenshots');
+                  continue;
+                }
+              }
+
+              console.log('Trying', ipadType + '...');
+              let setId;
+              const existingSet = sets.data?.find(s => s.attributes.screenshotDisplayType === ipadType);
+              if (existingSet) {
+                setId = existingSet.id;
+              } else {
+                const newSet = await api('POST', '/appScreenshotSets', {
+                  data: {
+                    type: 'appScreenshotSets',
+                    attributes: { screenshotDisplayType: ipadType },
+                    relationships: { appStoreVersionLocalization: { data: { type: 'appStoreVersionLocalizations', id: localeId } } }
+                  }
+                });
+                if (newSet.data) {
+                  setId = newSet.data.id;
+                  console.log('Created set:', ipadType);
+                } else {
+                  console.log(ipadType, '->', JSON.stringify(newSet).slice(0, 200));
+                  continue;
+                }
+              }
+
+              // Upload
+              let uploaded = 0;
+              for (let i = 1; i <= 4; i++) {
+                const filePath = path.join('public', 'screenshots', 'ipad_' + i + '.png');
+                if (!fs.existsSync(filePath)) continue;
+
+                const fileData = fs.readFileSync(filePath);
+                const checksum = crypto.createHash('md5').update(fileData).digest('base64');
+
+                const reserve = await api('POST', '/appScreenshots', {
+                  data: {
+                    type: 'appScreenshots',
+                    attributes: { fileName: 'ipad_' + i + '.png', fileSize: fileData.length },
+                    relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } }
+                  }
+                });
+
+                if (!reserve.data) { console.log('Reserve failed:', JSON.stringify(reserve).slice(0, 200)); continue; }
+
+                const ops = reserve.data.attributes.uploadOperations || [];
+                for (const op of ops) {
+                  const headers = {};
+                  for (const h of op.requestHeaders || []) headers[h.name] = h.value;
+                  await fetch(op.url, { method: 'PUT', headers, body: fileData.subarray(op.offset, op.offset + op.length) });
+                }
+
+                await api('PATCH', '/appScreenshots/' + reserve.data.id, {
+                  data: { type: 'appScreenshots', id: reserve.data.id, attributes: { uploaded: true, sourceFileChecksum: checksum } }
+                });
+                uploaded++;
+                console.log('Uploaded ipad_' + i + '.png');
+              }
+              if (uploaded > 0) break;
+            }
+
+            // 5. Clean up stuck review submissions
+            console.log('\n=== Cleaning Review Submissions ===');
+            const subs = await api('GET', '/apps/' + appId + '/reviewSubmissions');
+            console.log('Found', subs.data?.length || 0, 'submissions');
+            if (subs.data) {
+              for (const sub of subs.data) {
+                const state = sub.attributes.state;
+                console.log('  -', sub.id, state);
+                if (state === 'READY_FOR_REVIEW' || state === 'WAITING_FOR_REVIEW') {
+                  await api('PATCH', '/reviewSubmissions/' + sub.id, {
+                    data: { type: 'reviewSubmissions', id: sub.id, attributes: { canceled: true } }
+                  });
+                  const d = await api('DELETE', '/reviewSubmissions/' + sub.id);
+                  console.log('    deleted:', typeof d === 'string' && d === '' ? 'yes' : JSON.stringify(d).slice(0, 150));
+                }
+              }
+            }
+
+            // 6. Select latest build
+            console.log('\n=== Select Build ===');
+            const builds = await api('GET', '/builds?filter[app]=' + appId + '&filter[processingState]=VALID&sort=-uploadedDate&limit=1');
+            if (builds.data?.length) {
+              const buildId = builds.data[0].id;
+              const buildVer = builds.data[0].attributes.version;
+              console.log('Latest build:', buildId, 'version:', buildVer);
+              const br = await api('PATCH', '/appStoreVersions/' + versionId, {
+                data: { type: 'appStoreVersions', id: versionId,
+                  relationships: { build: { data: { type: 'builds', id: buildId } } }
+                }
+              });
+              console.log(br.data ? 'Build selected' : JSON.stringify(br).slice(0, 300));
+            }
+
+            console.log('\nAll done!');
+          }
+
+          main().catch(e => console.error(e));
+          SCRIPT
