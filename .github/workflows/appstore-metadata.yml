@@ -1,0 +1,325 @@
+name: Update App Store Metadata
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-metadata:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate JWT Token
+        id: jwt
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
+
+          # Generate JWT using python3 (available on macOS)
+          TOKEN=$(python3 -c "
+          import jwt, time
+          with open('$HOME/private_keys/AuthKey_${KEY_ID}.p8', 'r') as f:
+              key = f.read()
+          now = int(time.time())
+          payload = {'iss': '${ISSUER_ID}', 'iat': now, 'exp': now + 1200, 'aud': 'appstoreconnect-v1'}
+          token = jwt.encode(payload, key, algorithm='ES256', headers={'kid': '${KEY_ID}'})
+          print(token)
+          ")
+          echo "TOKEN=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Find App ID
+        id: app
+        run: |
+          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=com.sbupost.app" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+
+          APP_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
+
+          if [ -z "$APP_ID" ]; then
+            echo "App not found in App Store Connect. Full response:"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+          echo "APP_ID=$APP_ID" >> $GITHUB_OUTPUT
+          echo "Found app ID: $APP_ID"
+
+      - name: Get App Store Version
+        id: version
+        run: |
+          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps/${{ steps.app.outputs.APP_ID }}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,READY_FOR_SALE" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+
+          VERSION_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
+
+          if [ -z "$VERSION_ID" ]; then
+            echo "No version found. Creating one..."
+            RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appStoreVersions" \
+              -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "data": {
+                  "type": "appStoreVersions",
+                  "attributes": {
+                    "platform": "IOS",
+                    "versionString": "1.0"
+                  },
+                  "relationships": {
+                    "app": {
+                      "data": {
+                        "type": "apps",
+                        "id": "${{ steps.app.outputs.APP_ID }}"
+                      }
+                    }
+                  }
+                }
+              }')
+            VERSION_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data']['id'])")
+          fi
+
+          echo "VERSION_ID=$VERSION_ID" >> $GITHUB_OUTPUT
+          echo "Version ID: $VERSION_ID"
+
+      - name: Get Localization ID
+        id: locale
+        run: |
+          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/appStoreVersions/${{ steps.version.outputs.VERSION_ID }}/appStoreVersionLocalizations" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+
+          LOCALE_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
+
+          if [ -z "$LOCALE_ID" ]; then
+            echo "Creating en-US localization..."
+            RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations" \
+              -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "data": {
+                  "type": "appStoreVersionLocalizations",
+                  "attributes": {
+                    "locale": "en-US"
+                  },
+                  "relationships": {
+                    "appStoreVersion": {
+                      "data": {
+                        "type": "appStoreVersions",
+                        "id": "${{ steps.version.outputs.VERSION_ID }}"
+                      }
+                    }
+                  }
+                }
+              }')
+            LOCALE_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data']['id'])")
+          fi
+
+          echo "LOCALE_ID=$LOCALE_ID" >> $GITHUB_OUTPUT
+          echo "Locale ID: $LOCALE_ID"
+
+      - name: Update App Store Listing Metadata
+        run: |
+          curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations/${{ steps.locale.outputs.LOCALE_ID }}" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "data": {
+                "type": "appStoreVersionLocalizations",
+                "id": "${{ steps.locale.outputs.LOCALE_ID }}",
+                "attributes": {
+                  "description": "SBUPost is the social network built exclusively for Stony Brook University students.\n\nConnect with fellow Seawolves, share what'\''s happening on campus, and never miss a moment.\n\n• Share posts with text, photos, and videos\n• Follow classmates and see their updates\n• Direct message other students\n• Build your profile with your major, courses, clubs, and more\n• Search for students by name, major, or shared interests\n• Get notified when someone likes, comments, or follows you\n\nWhether you'\''re looking for study partners, want to know what'\''s going on around campus, or just want to connect with other Stony Brook students — SBUPost is your go-to app.\n\nNote: SBUPost requires a Stony Brook University email (@stonybrook.edu) to sign up.",
+                  "keywords": "stony brook,sbu,university,college,social,campus,students,seawolves,connect,friends",
+                  "supportUrl": "https://sbupost.vercel.app/privacy",
+                  "marketingUrl": "https://sbupost.vercel.app",
+                  "whatsNew": "Initial release of SBUPost — the social network for Stony Brook students."
+                }
+              }
+            }'
+          echo "Metadata updated successfully"
+
+      - name: Update App Info (Category)
+        run: |
+          # Get app info
+          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps/${{ steps.app.outputs.APP_ID }}/appInfos" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+
+          APP_INFO_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])")
+          echo "App Info ID: $APP_INFO_ID"
+
+          # Set category to Social Networking
+          curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appInfos/$APP_INFO_ID" \
+            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "data": {
+                "type": "appInfos",
+                "id": "'"$APP_INFO_ID"'",
+                "relationships": {
+                  "primaryCategory": {
+                    "data": {
+                      "type": "appCategories",
+                      "id": "SOCIAL_NETWORKING"
+                    }
+                  }
+                }
+              }
+            }'
+          echo "Category set to Social Networking"
+
+      - name: Upload Screenshots
+        run: |
+          TOKEN="${{ steps.jwt.outputs.TOKEN }}"
+          LOCALE_ID="${{ steps.locale.outputs.LOCALE_ID }}"
+
+          # Get existing screenshot sets
+          SETS=$(curl -s "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations/${LOCALE_ID}/appScreenshotSets" \
+            -H "Authorization: Bearer $TOKEN")
+
+          echo "Existing screenshot sets:"
+          echo "$SETS" | python3 -c "import sys,json; data=json.load(sys.stdin); [print(d['attributes']['screenshotDisplayType']) for d in data.get('data',[])]" 2>/dev/null || echo "None"
+
+          # Upload 6.7" screenshots (APP_IPHONE_67)
+          for display_type in "APP_IPHONE_67" "APP_IPHONE_65"; do
+            # Check if set exists
+            SET_ID=$(echo "$SETS" | python3 -c "
+          import sys,json
+          data=json.load(sys.stdin)
+          for d in data.get('data',[]):
+              if d['attributes']['screenshotDisplayType'] == '${display_type}':
+                  print(d['id'])
+                  break
+          " 2>/dev/null || echo "")
+
+            if [ -z "$SET_ID" ]; then
+              echo "Creating screenshot set for $display_type..."
+              RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appScreenshotSets" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "data": {
+                    "type": "appScreenshotSets",
+                    "attributes": {
+                      "screenshotDisplayType": "'"$display_type"'"
+                    },
+                    "relationships": {
+                      "appStoreVersionLocalization": {
+                        "data": {
+                          "type": "appStoreVersionLocalizations",
+                          "id": "'"$LOCALE_ID"'"
+                        }
+                      }
+                    }
+                  }
+                }')
+              SET_ID=$(echo $RESPONSE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+            fi
+
+            echo "Screenshot set $display_type ID: $SET_ID"
+
+            # Determine file prefix
+            if [ "$display_type" = "APP_IPHONE_67" ]; then
+              PREFIX="67"
+            else
+              PREFIX="65"
+            fi
+
+            # Upload each screenshot
+            for i in 1 2 3 4; do
+              FILE="public/screenshots/${PREFIX}_${i}.png"
+              if [ ! -f "$FILE" ]; then
+                echo "File $FILE not found, skipping"
+                continue
+              fi
+
+              FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat --format=%s "$FILE" 2>/dev/null)
+              CHECKSUM=$(openssl dgst -md5 -binary "$FILE" | base64)
+
+              echo "Reserving upload for $FILE (size: $FILE_SIZE)..."
+
+              # Reserve upload
+              RESERVE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appScreenshots" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "data": {
+                    "type": "appScreenshots",
+                    "attributes": {
+                      "fileName": "'"${PREFIX}_${i}.png"'",
+                      "fileSize": '"$FILE_SIZE"',
+                      "sourceFileChecksum": "'"$CHECKSUM"'"
+                    },
+                    "relationships": {
+                      "appScreenshotSet": {
+                        "data": {
+                          "type": "appScreenshotSets",
+                          "id": "'"$SET_ID"'"
+                        }
+                      }
+                    }
+                  }
+                }')
+
+              SCREENSHOT_ID=$(echo $RESERVE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "")
+
+              if [ -z "$SCREENSHOT_ID" ]; then
+                echo "Failed to reserve upload for $FILE:"
+                echo "$RESERVE"
+                continue
+              fi
+
+              # Get upload operations
+              UPLOAD_URL=$(echo $RESERVE | python3 -c "
+          import sys,json
+          data=json.load(sys.stdin)
+          ops = data['data']['attributes'].get('uploadOperations', [])
+          if ops:
+              print(ops[0]['url'])
+          " 2>/dev/null || echo "")
+
+              UPLOAD_HEADERS=$(echo $RESERVE | python3 -c "
+          import sys,json
+          data=json.load(sys.stdin)
+          ops = data['data']['attributes'].get('uploadOperations', [])
+          if ops:
+              for h in ops[0].get('requestHeaders', []):
+                  print(h['name'] + ': ' + h['value'])
+          " 2>/dev/null || echo "")
+
+              if [ -n "$UPLOAD_URL" ]; then
+                echo "Uploading $FILE..."
+
+                # Build header flags
+                HEADER_FLAGS=""
+                while IFS= read -r line; do
+                  if [ -n "$line" ]; then
+                    HEADER_FLAGS="$HEADER_FLAGS -H \"$line\""
+                  fi
+                done <<< "$UPLOAD_HEADERS"
+
+                eval curl -s -X PUT "$UPLOAD_URL" $HEADER_FLAGS --data-binary "@$FILE"
+
+                # Commit upload
+                curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appScreenshots/$SCREENSHOT_ID" \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{
+                    "data": {
+                      "type": "appScreenshots",
+                      "id": "'"$SCREENSHOT_ID"'",
+                      "attributes": {
+                        "uploaded": true,
+                        "sourceFileChecksum": "'"$CHECKSUM"'"
+                      }
+                    }
+                  }'
+                echo "Uploaded $FILE successfully"
+              else
+                echo "No upload URL for $FILE, may already exist"
+              fi
+            done
+          done
+
+          echo "All screenshots processed"

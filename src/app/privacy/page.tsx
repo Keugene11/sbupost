@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="font-bold text-[16px] mb-2">5. Your Rights</h2>
-          <p>You can update or delete your profile information at any time. You can delete your posts and comments. To delete your account entirely, contact us at support@sbupost.app.</p>
+          <p>You can update or delete your profile information at any time. You can delete your posts and comments. To delete your account entirely, visit the Account Deletion page within the app or at sbupost.vercel.app/delete-account. Account deletion is permanent and removes all your data including posts, comments, messages, and profile information.</p>
         </section>
 
         <section>
