@@ -15,318 +15,234 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Generate JWT Token
-        id: jwt
+      - name: Update App Store Connect
         env:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          mkdir -p ~/private_keys
-          echo "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
-
-          TOKEN=$(node -e "
+          node << 'SCRIPT'
           const crypto = require('crypto');
           const fs = require('fs');
-          const key = fs.readFileSync(process.env.HOME + '/private_keys/AuthKey_' + process.env.KEY_ID + '.p8', 'utf8');
-          const now = Math.floor(Date.now() / 1000);
-          const header = JSON.stringify({ alg: 'ES256', kid: process.env.KEY_ID, typ: 'JWT' });
-          const payload = JSON.stringify({ iss: process.env.ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' });
-          const b64 = s => Buffer.from(s).toString('base64url');
-          const input = b64(header) + '.' + b64(payload);
-          const sig = crypto.sign('SHA256', Buffer.from(input), { key, dsaEncoding: 'ieee-p1363' });
-          console.log(input + '.' + sig.toString('base64url'));
-          ")
-          echo "TOKEN=$TOKEN" >> $GITHUB_OUTPUT
+          const path = require('path');
 
-      - name: Find App ID
-        id: app
-        run: |
-          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=com.sbupost.app" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+          const KEY_ID = process.env.KEY_ID;
+          const ISSUER_ID = process.env.ISSUER_ID;
+          const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-          APP_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
+          function generateJWT() {
+            const now = Math.floor(Date.now() / 1000);
+            const header = JSON.stringify({ alg: 'ES256', kid: KEY_ID, typ: 'JWT' });
+            const payload = JSON.stringify({ iss: ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' });
+            const b64 = s => Buffer.from(s).toString('base64url');
+            const input = b64(header) + '.' + b64(payload);
+            const sig = crypto.sign('SHA256', Buffer.from(input), { key: PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
+            return input + '.' + sig.toString('base64url');
+          }
 
-          if [ -z "$APP_ID" ]; then
-            echo "App not found in App Store Connect. Full response:"
-            echo "$RESPONSE"
-            exit 1
-          fi
+          const TOKEN = generateJWT();
 
-          echo "APP_ID=$APP_ID" >> $GITHUB_OUTPUT
-          echo "Found app ID: $APP_ID"
+          async function api(method, endpoint, body) {
+            const url = 'https://api.appstoreconnect.apple.com/v1' + endpoint;
+            const opts = {
+              method,
+              headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+            };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            const text = await res.text();
+            try { return JSON.parse(text); } catch { return text; }
+          }
 
-      - name: Get App Store Version
-        id: version
-        run: |
-          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps/${{ steps.app.outputs.APP_ID }}/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,READY_FOR_SALE" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
+          async function main() {
+            // 1. Find app
+            console.log('Finding app...');
+            const apps = await api('GET', '/apps?filter[bundleId]=com.sbupost.app');
+            if (!apps.data || apps.data.length === 0) {
+              console.error('App not found:', JSON.stringify(apps).slice(0, 500));
+              process.exit(1);
+            }
+            const appId = apps.data[0].id;
+            console.log('App ID:', appId);
 
-          VERSION_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
-
-          if [ -z "$VERSION_ID" ]; then
-            echo "No version found. Creating one..."
-            RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appStoreVersions" \
-              -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "data": {
-                  "type": "appStoreVersions",
-                  "attributes": {
-                    "platform": "IOS",
-                    "versionString": "1.0"
-                  },
-                  "relationships": {
-                    "app": {
-                      "data": {
-                        "type": "apps",
-                        "id": "${{ steps.app.outputs.APP_ID }}"
-                      }
-                    }
-                  }
+            // 2. Find or create version
+            console.log('Finding version...');
+            const versions = await api('GET', '/apps/' + appId + '/appStoreVersions?filter[appStoreState]=PREPARE_FOR_SUBMISSION,READY_FOR_SALE,WAITING_FOR_REVIEW,IN_REVIEW');
+            let versionId;
+            if (versions.data && versions.data.length > 0) {
+              versionId = versions.data[0].id;
+              console.log('Existing version:', versionId);
+            } else {
+              console.log('Creating version 1.0...');
+              const newVer = await api('POST', '/appStoreVersions', {
+                data: {
+                  type: 'appStoreVersions',
+                  attributes: { platform: 'IOS', versionString: '1.0' },
+                  relationships: { app: { data: { type: 'apps', id: appId } } }
                 }
-              }')
-            VERSION_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data']['id'])")
-          fi
+              });
+              versionId = newVer.data.id;
+              console.log('Created version:', versionId);
+            }
 
-          echo "VERSION_ID=$VERSION_ID" >> $GITHUB_OUTPUT
-          echo "Version ID: $VERSION_ID"
-
-      - name: Get Localization ID
-        id: locale
-        run: |
-          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/appStoreVersions/${{ steps.version.outputs.VERSION_ID }}/appStoreVersionLocalizations" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
-
-          LOCALE_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])" 2>/dev/null || echo "")
-
-          if [ -z "$LOCALE_ID" ]; then
-            echo "Creating en-US localization..."
-            RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations" \
-              -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "data": {
-                  "type": "appStoreVersionLocalizations",
-                  "attributes": {
-                    "locale": "en-US"
-                  },
-                  "relationships": {
-                    "appStoreVersion": {
-                      "data": {
-                        "type": "appStoreVersions",
-                        "id": "${{ steps.version.outputs.VERSION_ID }}"
-                      }
-                    }
-                  }
+            // 3. Find or create localization
+            console.log('Finding localization...');
+            const locales = await api('GET', '/appStoreVersions/' + versionId + '/appStoreVersionLocalizations');
+            let localeId;
+            if (locales.data && locales.data.length > 0) {
+              localeId = locales.data[0].id;
+              console.log('Existing locale:', localeId);
+            } else {
+              const newLocale = await api('POST', '/appStoreVersionLocalizations', {
+                data: {
+                  type: 'appStoreVersionLocalizations',
+                  attributes: { locale: 'en-US' },
+                  relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } }
                 }
-              }')
-            LOCALE_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data']['id'])")
-          fi
+              });
+              localeId = newLocale.data.id;
+              console.log('Created locale:', localeId);
+            }
 
-          echo "LOCALE_ID=$LOCALE_ID" >> $GITHUB_OUTPUT
-          echo "Locale ID: $LOCALE_ID"
+            // 4. Update metadata
+            console.log('Updating metadata...');
+            const description = `SBUPost is the social network built exclusively for Stony Brook University students.
 
-      - name: Update App Store Listing Metadata
-        run: |
-          curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations/${{ steps.locale.outputs.LOCALE_ID }}" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "data": {
-                "type": "appStoreVersionLocalizations",
-                "id": "${{ steps.locale.outputs.LOCALE_ID }}",
-                "attributes": {
-                  "description": "SBUPost is the social network built exclusively for Stony Brook University students.\n\nConnect with fellow Seawolves, share what'\''s happening on campus, and never miss a moment.\n\n• Share posts with text, photos, and videos\n• Follow classmates and see their updates\n• Direct message other students\n• Build your profile with your major, courses, clubs, and more\n• Search for students by name, major, or shared interests\n• Get notified when someone likes, comments, or follows you\n\nWhether you'\''re looking for study partners, want to know what'\''s going on around campus, or just want to connect with other Stony Brook students — SBUPost is your go-to app.\n\nNote: SBUPost requires a Stony Brook University email (@stonybrook.edu) to sign up.",
-                  "keywords": "stony brook,sbu,university,college,social,campus,students,seawolves,connect,friends",
-                  "supportUrl": "https://sbupost.vercel.app/privacy",
-                  "marketingUrl": "https://sbupost.vercel.app",
-                  "whatsNew": "Initial release of SBUPost — the social network for Stony Brook students."
+          Connect with fellow Seawolves, share what's happening on campus, and never miss a moment.
+
+          • Share posts with text, photos, and videos
+          • Follow classmates and see their updates
+          • Direct message other students
+          • Build your profile with your major, courses, clubs, and more
+          • Search for students by name, major, or shared interests
+          • Get notified when someone likes, comments, or follows you
+
+          Whether you're looking for study partners, want to know what's going on around campus, or just want to connect with other Stony Brook students — SBUPost is your go-to app.
+
+          Note: SBUPost requires a Stony Brook University email (@stonybrook.edu) to sign up.`;
+
+            const metaResult = await api('PATCH', '/appStoreVersionLocalizations/' + localeId, {
+              data: {
+                type: 'appStoreVersionLocalizations',
+                id: localeId,
+                attributes: {
+                  description,
+                  keywords: 'stony brook,sbu,university,college,social,campus,students,seawolves,connect,friends',
+                  supportUrl: 'https://sbupost.vercel.app/privacy',
+                  marketingUrl: 'https://sbupost.vercel.app',
+                  whatsNew: 'Initial release of SBUPost — the social network for Stony Brook students.'
                 }
               }
-            }'
-          echo "Metadata updated successfully"
+            });
+            console.log('Metadata updated:', metaResult.data ? 'success' : JSON.stringify(metaResult).slice(0, 300));
 
-      - name: Update App Info (Category)
-        run: |
-          # Get app info
-          RESPONSE=$(curl -s "https://api.appstoreconnect.apple.com/v1/apps/${{ steps.app.outputs.APP_ID }}/appInfos" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}")
-
-          APP_INFO_ID=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['data'][0]['id'])")
-          echo "App Info ID: $APP_INFO_ID"
-
-          # Set category to Social Networking
-          curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appInfos/$APP_INFO_ID" \
-            -H "Authorization: Bearer ${{ steps.jwt.outputs.TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "data": {
-                "type": "appInfos",
-                "id": "'"$APP_INFO_ID"'",
-                "relationships": {
-                  "primaryCategory": {
-                    "data": {
-                      "type": "appCategories",
-                      "id": "SOCIAL_NETWORKING"
-                    }
+            // 5. Set category
+            console.log('Setting category...');
+            const appInfos = await api('GET', '/apps/' + appId + '/appInfos');
+            if (appInfos.data && appInfos.data.length > 0) {
+              const appInfoId = appInfos.data[0].id;
+              const catResult = await api('PATCH', '/appInfos/' + appInfoId, {
+                data: {
+                  type: 'appInfos',
+                  id: appInfoId,
+                  relationships: {
+                    primaryCategory: { data: { type: 'appCategories', id: 'SOCIAL_NETWORKING' } }
                   }
                 }
+              });
+              console.log('Category set:', catResult.data ? 'success' : JSON.stringify(catResult).slice(0, 300));
+            }
+
+            // 6. Upload screenshots
+            console.log('Uploading screenshots...');
+            const displayTypes = [
+              { type: 'APP_IPHONE_67', prefix: '67' },
+              { type: 'APP_IPHONE_65', prefix: '65' },
+            ];
+
+            for (const { type: displayType, prefix } of displayTypes) {
+              // Get or create screenshot set
+              const sets = await api('GET', '/appStoreVersionLocalizations/' + localeId + '/appScreenshotSets');
+              let setId;
+              if (sets.data) {
+                const existing = sets.data.find(s => s.attributes.screenshotDisplayType === displayType);
+                if (existing) setId = existing.id;
               }
-            }'
-          echo "Category set to Social Networking"
 
-      - name: Upload Screenshots
-        run: |
-          TOKEN="${{ steps.jwt.outputs.TOKEN }}"
-          LOCALE_ID="${{ steps.locale.outputs.LOCALE_ID }}"
-
-          # Get existing screenshot sets
-          SETS=$(curl -s "https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations/${LOCALE_ID}/appScreenshotSets" \
-            -H "Authorization: Bearer $TOKEN")
-
-          echo "Existing screenshot sets:"
-          echo "$SETS" | python3 -c "import sys,json; data=json.load(sys.stdin); [print(d['attributes']['screenshotDisplayType']) for d in data.get('data',[])]" 2>/dev/null || echo "None"
-
-          # Upload 6.7" screenshots (APP_IPHONE_67)
-          for display_type in "APP_IPHONE_67" "APP_IPHONE_65"; do
-            # Check if set exists
-            SET_ID=$(echo "$SETS" | python3 -c "
-          import sys,json
-          data=json.load(sys.stdin)
-          for d in data.get('data',[]):
-              if d['attributes']['screenshotDisplayType'] == '${display_type}':
-                  print(d['id'])
-                  break
-          " 2>/dev/null || echo "")
-
-            if [ -z "$SET_ID" ]; then
-              echo "Creating screenshot set for $display_type..."
-              RESPONSE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appScreenshotSets" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                -d '{
-                  "data": {
-                    "type": "appScreenshotSets",
-                    "attributes": {
-                      "screenshotDisplayType": "'"$display_type"'"
-                    },
-                    "relationships": {
-                      "appStoreVersionLocalization": {
-                        "data": {
-                          "type": "appStoreVersionLocalizations",
-                          "id": "'"$LOCALE_ID"'"
-                        }
-                      }
-                    }
+              if (!setId) {
+                console.log('Creating screenshot set for', displayType);
+                const newSet = await api('POST', '/appScreenshotSets', {
+                  data: {
+                    type: 'appScreenshotSets',
+                    attributes: { screenshotDisplayType: displayType },
+                    relationships: { appStoreVersionLocalization: { data: { type: 'appStoreVersionLocalizations', id: localeId } } }
                   }
-                }')
-              SET_ID=$(echo $RESPONSE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
-            fi
+                });
+                setId = newSet.data?.id;
+                if (!setId) {
+                  console.log('Failed to create set:', JSON.stringify(newSet).slice(0, 300));
+                  continue;
+                }
+              }
 
-            echo "Screenshot set $display_type ID: $SET_ID"
+              console.log(displayType, 'set ID:', setId);
 
-            # Determine file prefix
-            if [ "$display_type" = "APP_IPHONE_67" ]; then
-              PREFIX="67"
-            else
-              PREFIX="65"
-            fi
+              // Check existing screenshots
+              const existingScreenshots = await api('GET', '/appScreenshotSets/' + setId + '/appScreenshots');
+              if (existingScreenshots.data && existingScreenshots.data.length > 0) {
+                console.log(displayType, 'already has', existingScreenshots.data.length, 'screenshots, skipping');
+                continue;
+              }
 
-            # Upload each screenshot
-            for i in 1 2 3 4; do
-              FILE="public/screenshots/${PREFIX}_${i}.png"
-              if [ ! -f "$FILE" ]; then
-                echo "File $FILE not found, skipping"
-                continue
-              fi
+              // Upload each screenshot
+              for (let i = 1; i <= 4; i++) {
+                const filePath = path.join('public', 'screenshots', prefix + '_' + i + '.png');
+                if (!fs.existsSync(filePath)) { console.log('File not found:', filePath); continue; }
 
-              FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat --format=%s "$FILE" 2>/dev/null)
-              CHECKSUM=$(openssl dgst -md5 -binary "$FILE" | base64)
+                const fileData = fs.readFileSync(filePath);
+                const fileSize = fileData.length;
+                const checksum = crypto.createHash('md5').update(fileData).digest('base64');
 
-              echo "Reserving upload for $FILE (size: $FILE_SIZE)..."
+                console.log('Reserving upload for', filePath, '(' + fileSize + ' bytes)');
 
-              # Reserve upload
-              RESERVE=$(curl -s -X POST "https://api.appstoreconnect.apple.com/v1/appScreenshots" \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                -d '{
-                  "data": {
-                    "type": "appScreenshots",
-                    "attributes": {
-                      "fileName": "'"${PREFIX}_${i}.png"'",
-                      "fileSize": '"$FILE_SIZE"',
-                      "sourceFileChecksum": "'"$CHECKSUM"'"
-                    },
-                    "relationships": {
-                      "appScreenshotSet": {
-                        "data": {
-                          "type": "appScreenshotSets",
-                          "id": "'"$SET_ID"'"
-                        }
-                      }
-                    }
+                const reserve = await api('POST', '/appScreenshots', {
+                  data: {
+                    type: 'appScreenshots',
+                    attributes: { fileName: prefix + '_' + i + '.png', fileSize, sourceFileChecksum: checksum },
+                    relationships: { appScreenshotSet: { data: { type: 'appScreenshotSets', id: setId } } }
                   }
-                }')
+                });
 
-              SCREENSHOT_ID=$(echo $RESERVE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null || echo "")
+                if (!reserve.data) {
+                  console.log('Reserve failed:', JSON.stringify(reserve).slice(0, 300));
+                  continue;
+                }
 
-              if [ -z "$SCREENSHOT_ID" ]; then
-                echo "Failed to reserve upload for $FILE:"
-                echo "$RESERVE"
-                continue
-              fi
+                const screenshotId = reserve.data.id;
+                const ops = reserve.data.attributes.uploadOperations || [];
 
-              # Get upload operations
-              UPLOAD_URL=$(echo $RESERVE | python3 -c "
-          import sys,json
-          data=json.load(sys.stdin)
-          ops = data['data']['attributes'].get('uploadOperations', [])
-          if ops:
-              print(ops[0]['url'])
-          " 2>/dev/null || echo "")
+                for (const op of ops) {
+                  const headers = {};
+                  for (const h of op.requestHeaders || []) headers[h.name] = h.value;
 
-              UPLOAD_HEADERS=$(echo $RESERVE | python3 -c "
-          import sys,json
-          data=json.load(sys.stdin)
-          ops = data['data']['attributes'].get('uploadOperations', [])
-          if ops:
-              for h in ops[0].get('requestHeaders', []):
-                  print(h['name'] + ': ' + h['value'])
-          " 2>/dev/null || echo "")
+                  const chunk = fileData.subarray(op.offset, op.offset + op.length);
+                  await fetch(op.url, { method: 'PUT', headers, body: chunk });
+                }
 
-              if [ -n "$UPLOAD_URL" ]; then
-                echo "Uploading $FILE..."
+                // Commit
+                await api('PATCH', '/appScreenshots/' + screenshotId, {
+                  data: {
+                    type: 'appScreenshots',
+                    id: screenshotId,
+                    attributes: { uploaded: true, sourceFileChecksum: checksum }
+                  }
+                });
+                console.log('Uploaded', filePath);
+              }
+            }
 
-                # Build header flags
-                HEADER_FLAGS=""
-                while IFS= read -r line; do
-                  if [ -n "$line" ]; then
-                    HEADER_FLAGS="$HEADER_FLAGS -H \"$line\""
-                  fi
-                done <<< "$UPLOAD_HEADERS"
+            console.log('Done! All metadata and screenshots updated.');
+          }
 
-                eval curl -s -X PUT "$UPLOAD_URL" $HEADER_FLAGS --data-binary "@$FILE"
-
-                # Commit upload
-                curl -s -X PATCH "https://api.appstoreconnect.apple.com/v1/appScreenshots/$SCREENSHOT_ID" \
-                  -H "Authorization: Bearer $TOKEN" \
-                  -H "Content-Type: application/json" \
-                  -d '{
-                    "data": {
-                      "type": "appScreenshots",
-                      "id": "'"$SCREENSHOT_ID"'",
-                      "attributes": {
-                        "uploaded": true,
-                        "sourceFileChecksum": "'"$CHECKSUM"'"
-                      }
-                    }
-                  }'
-                echo "Uploaded $FILE successfully"
-              else
-                echo "No upload URL for $FILE, may already exist"
-              fi
-            done
-          done
-
-          echo "All screenshots processed"
+          main().catch(e => { console.error(e); process.exit(1); });
+          SCRIPT
