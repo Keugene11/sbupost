@@ -130,7 +130,7 @@ jobs:
                   keywords: 'stony brook,sbu,university,college,social,campus,students,seawolves,connect,friends',
                   supportUrl: 'https://sbupost.vercel.app/privacy',
                   marketingUrl: 'https://sbupost.vercel.app',
-                  whatsNew: 'Initial release of SBUPost — the social network for Stony Brook students.'
+                  // whatsNew only for updates, not initial release
                 }
               }
             });
