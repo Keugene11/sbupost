@@ -43,7 +43,7 @@ export default function BottomNav() {
   }, [pathname])
 
   return (
-    <div
+    <nav
       style={{
         position: 'fixed',
         bottom: 0,
@@ -52,6 +52,9 @@ export default function BottomNav() {
         zIndex: 2147483647,
         backgroundColor: 'var(--color-bg, #fafafa)',
         borderTop: '1px solid var(--color-border, #e8e8e8)',
+        pointerEvents: 'auto',
+        touchAction: 'manipulation',
+        isolation: 'isolate',
       }}
     >
       <div className="max-w-md md:max-w-xl mx-auto flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -63,23 +66,23 @@ export default function BottomNav() {
               key={href}
               href={href}
               prefetch
-              className={`relative flex flex-col items-center gap-0.5 px-3 py-1 press ${
+              className={`relative flex flex-col items-center gap-0.5 px-4 py-2 press ${
                 active ? 'text-accent' : 'text-text-muted'
               }`}
             >
               <div className="relative">
-                <Icon size={22} strokeWidth={active ? 2 : 1.5} style={{ pointerEvents: 'none' }} />
+                <Icon size={22} strokeWidth={active ? 2 : 1.5} />
                 {showBadge && (
                   <span className="absolute -top-1 -right-1.5 bg-accent text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                     {unread > 9 ? '9+' : unread}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium" style={{ pointerEvents: 'none' }}>{label}</span>
+              <span className="text-[10px] font-medium">{label}</span>
             </Link>
           )
         })}
       </div>
-    </div>
+    </nav>
   )
 }
