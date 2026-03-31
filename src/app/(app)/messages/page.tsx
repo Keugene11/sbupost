@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User, Loader2 } from 'lucide-react'
+import { User, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
@@ -18,6 +18,21 @@ interface ConversationWithProfile {
     avatar_url: string | null
   }
   last_message?: string
+}
+
+function ConversationSkeleton() {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="w-[52px] h-[52px] rounded-full bg-bg-input animate-pulse shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-28 bg-bg-input rounded-full animate-pulse" />
+          <div className="h-3 w-12 bg-bg-input rounded-full animate-pulse" />
+        </div>
+        <div className="h-3.5 w-44 bg-bg-input rounded-full animate-pulse" />
+      </div>
+    </div>
+  )
 }
 
 export default function MessagesPage() {
@@ -40,26 +55,30 @@ export default function MessagesPage() {
       .order('last_message_at', { ascending: false })
 
     if (data) {
-      const convos: ConversationWithProfile[] = []
-      for (const c of data) {
-        const otherUser = c.user1_id === user.id ? c.user2 : c.user1
-        // Fetch last message
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('conversation_id', c.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
+      // Fetch all last messages in parallel (fixes N+1 query bug)
+      const lastMessages = await Promise.all(
+        data.map((c) =>
+          supabase
+            .from('messages')
+            .select('content')
+            .eq('conversation_id', c.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+        )
+      )
 
-        convos.push({
+      const convos: ConversationWithProfile[] = data.map((c, i) => {
+        const otherUser = c.user1_id === user.id ? c.user2 : c.user1
+        return {
           id: c.id,
           user1_id: c.user1_id,
           user2_id: c.user2_id,
           last_message_at: c.last_message_at,
           other_user: otherUser as unknown as { id: string; full_name: string; avatar_url: string | null },
-          last_message: msgs?.[0]?.content,
-        })
-      }
+          last_message: lastMessages[i]?.data?.[0]?.content,
+        }
+      })
+
       setConversations(convos)
     }
     setLoading(false)
@@ -69,55 +88,60 @@ export default function MessagesPage() {
     fetchConversations()
   }, [fetchConversations])
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-text-muted" />
-      </div>
-    )
-  }
-
   return (
-    <div className="max-w-md mx-auto px-4 pt-6">
-      <h1 className="text-[24px] font-extrabold tracking-tight mb-4">Messages</h1>
+    <div className="max-w-md mx-auto px-4 pt-6 pb-4">
+      <h1 className="text-[28px] font-extrabold tracking-tight mb-1">Messages</h1>
+      <p className="text-[13px] text-text-muted mb-5">Your conversations</p>
 
-      {conversations.length === 0 ? (
-        <div className="text-center py-12 text-text-muted text-[14px]">
-          No conversations yet. Visit someone&apos;s profile to start a chat!
+      {loading ? (
+        <div className="divide-y divide-border/50">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ConversationSkeleton key={i} />
+          ))}
+        </div>
+      ) : conversations.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
+          <div className="w-16 h-16 rounded-full bg-bg-input flex items-center justify-center mb-4">
+            <MessageSquare size={28} className="text-text-muted" />
+          </div>
+          <p className="text-[16px] font-semibold text-text mb-1">No messages yet</p>
+          <p className="text-[13px] text-text-muted text-center max-w-[240px]">
+            Visit someone&apos;s profile to start a conversation
+          </p>
         </div>
       ) : (
-        <div className="space-y-2 stagger">
+        <div className="stagger">
           {conversations.map((convo) => (
             <Link
               key={convo.id}
               href={`/messages/${convo.id}`}
-              className="flex items-center gap-3 bg-bg-card border border-border rounded-2xl px-4 py-3 hover:bg-bg-card-hover transition-colors press"
+              className="flex items-center gap-3 px-4 py-3.5 -mx-4 hover:bg-bg-card-hover transition-colors press active:bg-bg-card-hover"
             >
               {convo.other_user.avatar_url ? (
                 <Image
                   src={convo.other_user.avatar_url}
                   alt=""
-                  width={44}
-                  height={44}
-                  className="rounded-full w-11 h-11 object-cover"
+                  width={52}
+                  height={52}
+                  className="rounded-full w-[52px] h-[52px] object-cover shrink-0"
                 />
               ) : (
-                <div className="w-11 h-11 rounded-full bg-bg-input flex items-center justify-center shrink-0">
-                  <User size={20} className="text-text-muted" />
+                <div className="w-[52px] h-[52px] rounded-full bg-bg-input flex items-center justify-center shrink-0">
+                  <User size={22} className="text-text-muted" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-[14px] truncate">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="font-semibold text-[15px] truncate">
                     {convo.other_user.full_name || 'Anonymous'}
                   </p>
-                  <span className="text-[11px] text-text-muted shrink-0">
-                    {formatDistanceToNow(new Date(convo.last_message_at), { addSuffix: true })}
+                  <span className="text-[12px] text-text-muted shrink-0 ml-2">
+                    {formatDistanceToNow(new Date(convo.last_message_at), { addSuffix: false })}
                   </span>
                 </div>
-                {convo.last_message && (
-                  <p className="text-[13px] text-text-muted truncate">{convo.last_message}</p>
-                )}
+                <p className="text-[14px] text-text-muted truncate">
+                  {convo.last_message || 'No messages yet'}
+                </p>
               </div>
             </Link>
           ))}
