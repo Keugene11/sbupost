@@ -1,7 +1,6 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import Link from 'next/link'
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Home, Search, Bell, MessageCircle, User } from 'lucide-react'
@@ -35,7 +34,6 @@ export default function BottomNav() {
     return () => clearInterval(interval)
   }, [supabase])
 
-  // Clear badge when on notifications page
   useEffect(() => {
     if (pathname.startsWith('/notifications')) {
       setUnread(0)
@@ -43,29 +41,15 @@ export default function BottomNav() {
   }, [pathname])
 
   return (
-    <nav
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 2147483647,
-        backgroundColor: 'var(--color-bg, #fafafa)',
-        borderTop: '1px solid var(--color-border, #e8e8e8)',
-        pointerEvents: 'auto',
-        touchAction: 'manipulation',
-        isolation: 'isolate',
-      }}
-    >
+    <nav className="fixed bottom-0 left-0 right-0 z-[2147483647] bg-bg border-t border-border">
       <div className="max-w-md md:max-w-xl mx-auto flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = pathname.startsWith(href)
           const showBadge = href === '/notifications' && unread > 0
           return (
-            <Link
+            <a
               key={href}
               href={href}
-              prefetch
               className={`relative flex flex-col items-center gap-0.5 px-4 py-2 press ${
                 active ? 'text-accent' : 'text-text-muted'
               }`}
@@ -79,7 +63,7 @@ export default function BottomNav() {
                 )}
               </div>
               <span className="text-[10px] font-medium">{label}</span>
-            </Link>
+            </a>
           )
         })}
       </div>
