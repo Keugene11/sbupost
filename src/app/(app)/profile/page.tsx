@@ -416,7 +416,7 @@ export default function ProfilePage() {
       )}
 
       <div className="mt-8 mb-4 flex items-center justify-center gap-4 text-[13px] text-text-muted">
-        <a href="mailto:keugenelee11@gmail.com" className="hover:text-text transition-colors">Support</a>
+        <button onClick={() => { navigator.clipboard.writeText('keugenelee11@gmail.com'); alert('Support email: keugenelee11@gmail.com\n\nCopied to clipboard!') }} className="hover:text-text transition-colors press">Support</button>
         <span>·</span>
         <a href="/privacy" className="hover:text-text transition-colors">Privacy</a>
         <span>·</span>
