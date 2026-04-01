@@ -14,7 +14,6 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
   const [results, setResults] = useState<string[]>([])
-  const ref = useRef<HTMLDivElement>(null)
 
   const courses = value ? value.split(', ').filter(Boolean) : []
 
@@ -25,16 +24,6 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
       setResults([])
     }
   }, [input, courses])
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
 
   const addCourse = (course: string) => {
     if (courses.includes(course)) return
@@ -48,7 +37,7 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       {courses.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {courses.map((course) => (
@@ -70,18 +59,21 @@ export default function CourseSelect({ value, onChange, className }: CourseSelec
         className={className}
       />
       {open && results.length > 0 && (
-        <div className="absolute z-40 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg max-h-[200px] overflow-y-auto">
-          {results.map((course) => (
-            <button
-              key={course}
-              type="button"
-              onClick={() => addCourse(course)}
-              className="w-full text-left px-4 py-2 text-[13px] hover:bg-bg-card-hover transition-colors first:rounded-t-xl last:rounded-b-xl"
-            >
-              {course}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute z-40 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg max-h-[200px] overflow-y-auto">
+            {results.map((course) => (
+              <button
+                key={course}
+                type="button"
+                onClick={() => addCourse(course)}
+                className="w-full text-left px-4 py-2 text-[13px] hover:bg-bg-card-hover transition-colors first:rounded-t-xl last:rounded-b-xl"
+              >
+                {course}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )
