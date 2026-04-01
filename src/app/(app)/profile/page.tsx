@@ -331,6 +331,7 @@ export default function ProfilePage() {
               value={residenceHall}
               onChange={(v) => updateField('residence_hall', v, setResidenceHall)}
               placeholder="Select residence hall"
+              searchable
               options={[
                 { value: "Greeley Hall", label: "Greeley Hall", group: "Eleanor Roosevelt" },
                 { value: "Keller Hall", label: "Keller Hall", group: "Eleanor Roosevelt" },

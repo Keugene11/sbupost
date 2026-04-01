@@ -14,18 +14,37 @@ interface StyledSelectProps {
   onChange: (value: string) => void
   options: Option[]
   placeholder: string
-  className?: string
+  searchable?: boolean
 }
 
-export default function StyledSelect({ value, onChange, options, placeholder }: StyledSelectProps) {
+export default function StyledSelect({ value, onChange, options, placeholder, searchable = false }: StyledSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const selectedLabel = options.find((o) => o.value === value)?.label
 
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus()
+    if (open && searchable && inputRef.current) inputRef.current.focus()
+  }, [open, searchable])
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch('')
+      }
+    }
+    // Use setTimeout so the opening click doesn't immediately close it
+    const timer = setTimeout(() => {
+      window.addEventListener('click', handleClick)
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('click', handleClick)
+    }
   }, [open])
 
   const filtered = search
@@ -53,7 +72,7 @@ export default function StyledSelect({ value, onChange, options, placeholder }: 
   }
 
   return (
-    <div className="relative">
+    <div ref={dropdownRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -64,9 +83,8 @@ export default function StyledSelect({ value, onChange, options, placeholder }: 
       </button>
 
       {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => { setOpen(false); setSearch('') }} />
-          <div className="absolute z-40 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-40 top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+          {searchable && (
             <div className="p-2 border-b border-border">
               <input
                 ref={inputRef}
@@ -77,34 +95,34 @@ export default function StyledSelect({ value, onChange, options, placeholder }: 
                 className="w-full bg-bg-input rounded-lg px-3 py-1.5 text-[13px] outline-none placeholder:text-text-muted/50"
               />
             </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              {Object.entries(groups).map(([group, opts]) => (
-                <div key={group}>
-                  {group && (
-                    <p className="px-3 py-1.5 text-[10px] text-text-muted uppercase tracking-wide font-semibold bg-bg-input/50">{group}</p>
-                  )}
-                  {opts.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        onChange(opt.value)
-                        setOpen(false)
-                        setSearch('')
-                      }}
-                      className="w-full text-left px-3 py-2 text-[13px] hover:bg-bg-card-hover transition-colors"
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              {filtered.length === 0 && (
-                <p className="px-3 py-3 text-[13px] text-text-muted text-center">No results</p>
-              )}
-            </div>
+          )}
+          <div className="max-h-[200px] overflow-y-auto">
+            {Object.entries(groups).map(([group, opts]) => (
+              <div key={group}>
+                {group && (
+                  <p className="px-3 py-1.5 text-[10px] text-text-muted uppercase tracking-wide font-semibold bg-bg-input/50">{group}</p>
+                )}
+                {opts.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value)
+                      setOpen(false)
+                      setSearch('')
+                    }}
+                    className="w-full text-left px-3 py-2 text-[13px] hover:bg-bg-card-hover transition-colors"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-3 text-[13px] text-text-muted text-center">No results</p>
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   )
