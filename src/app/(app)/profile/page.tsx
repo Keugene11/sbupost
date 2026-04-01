@@ -391,6 +391,7 @@ export default function ProfilePage() {
               onChange={(v) => updateField('relationship_status', v, setRelationshipStatus)}
               placeholder="Prefer not to say"
               options={[
+                { value: "Prefer not to say", label: "Prefer not to say" },
                 { value: "Single", label: "Single" },
                 { value: "In a relationship", label: "In a relationship" },
                 { value: "Complicated", label: "It's complicated" },
