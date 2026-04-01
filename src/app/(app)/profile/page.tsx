@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Post } from '@/types'
-import { LogOut, Loader2, User, Camera, Check, Trash2 } from 'lucide-react'
+import { LogOut, Loader2, User, Camera, Check, Trash2, Mail, Copy, X } from 'lucide-react'
 import PostCard from '@/components/PostCard'
 import Autocomplete from '@/components/Autocomplete'
 import CourseSelect from '@/components/CourseSelect'
@@ -22,6 +22,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showFollowList, setShowFollowList] = useState<'followers' | 'following' | null>(null)
+  const [showSupport, setShowSupport] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -416,7 +418,7 @@ export default function ProfilePage() {
       )}
 
       <div className="mt-8 mb-4 flex items-center justify-center gap-4 text-[13px] text-text-muted">
-        <button onClick={() => { navigator.clipboard.writeText('keugenelee11@gmail.com'); alert('Support email: keugenelee11@gmail.com\n\nCopied to clipboard!') }} className="hover:text-text transition-colors press">Support</button>
+        <button onClick={() => { setShowSupport(true); setCopied(false) }} className="hover:text-text transition-colors press">Support</button>
         <span>·</span>
         <a href="/privacy" className="hover:text-text transition-colors">Privacy</a>
         <span>·</span>
@@ -463,6 +465,52 @@ export default function ProfilePage() {
           type={showFollowList}
           onClose={() => setShowFollowList(null)}
         />
+      )}
+
+      {showSupport && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-5">
+          <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={() => setShowSupport(false)} />
+          <div className="relative bg-bg-card border border-border rounded-2xl px-6 py-6 w-full max-w-sm animate-slide-up">
+            <button onClick={() => setShowSupport(false)} className="absolute top-4 right-4 text-text-muted press">
+              <X size={20} />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                <Mail size={20} className="text-accent" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[16px]">Contact Support</h3>
+                <p className="text-[13px] text-text-muted">We typically respond within 24 hours</p>
+              </div>
+            </div>
+            <div className="bg-bg-input rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <span className="text-[14px] font-medium truncate">keugenelee11@gmail.com</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('keugenelee11@gmail.com')
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                className="shrink-0 press"
+              >
+                {copied ? (
+                  <Check size={18} className="text-green-600" />
+                ) : (
+                  <Copy size={18} className="text-text-muted" />
+                )}
+              </button>
+            </div>
+            {copied && (
+              <p className="text-[12px] text-green-600 font-medium mt-2 text-center animate-fade-in">Copied to clipboard!</p>
+            )}
+            <a
+              href="mailto:keugenelee11@gmail.com"
+              className="block w-full bg-accent text-white text-center py-3 rounded-xl font-semibold text-[14px] mt-4 press"
+            >
+              Open Email App
+            </a>
+          </div>
+        </div>
       )}
     </div>
   )
