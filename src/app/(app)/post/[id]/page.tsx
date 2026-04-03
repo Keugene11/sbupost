@@ -16,21 +16,31 @@ export default function PostDetailPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   const fetchPost = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) setUserId(user.id)
+
     const { data } = await supabase
       .from('posts')
       .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)')
       .eq('id', id)
       .single()
-    if (data) setPost(data as Post)
+
+    if (data) {
+      const ADMIN_EMAILS = ['keugenelee11@gmail.com']
+      const isAdmin = ADMIN_EMAILS.includes(user?.email || '')
+      // Block unapproved posts unless author or admin
+      if (!data.is_approved && data.user_id !== user?.id && !isAdmin) {
+        router.push('/feed')
+        return
+      }
+      setPost(data as Post)
+    }
     setLoading(false)
-  }, [id, supabase])
+  }, [id, supabase, router])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id)
-    })
     fetchPost()
-  }, [fetchPost, supabase.auth])
+  }, [fetchPost])
 
   const handleDeleted = () => {
     router.push('/feed')

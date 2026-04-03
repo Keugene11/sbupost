@@ -51,11 +51,21 @@ export default function ChatPage() {
         setOtherUser(other as unknown as OtherUser)
       }
 
-      const { data: msgs } = await supabase
+      const ADMIN_EMAILS = ['keugenelee11@gmail.com']
+      const isAdmin = ADMIN_EMAILS.includes(user.email || '')
+
+      let msgsQuery = supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
+
+      // Regular users see approved messages + their own sent messages
+      if (!isAdmin) {
+        msgsQuery = msgsQuery.or(`is_approved.eq.true,sender_id.eq.${user.id}`)
+      }
+
+      const { data: msgs } = await msgsQuery
 
       if (msgs) setMessages(msgs)
     } catch {
@@ -85,7 +95,8 @@ export default function ChatPage() {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const newMsg = payload.new as Message
+          const newMsg = payload.new as Message & { is_approved?: boolean }
+          if (!newMsg.is_approved && newMsg.sender_id !== currentUserId) return
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev
             return [...prev, newMsg]
@@ -117,16 +128,34 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, tempMsg])
 
     try {
-      const { error } = await supabase.from('messages').insert({
+      const { data: insertedMsg, error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_id: currentUserId,
         content: messageContent,
-      })
+      }).select('id').single()
 
       if (error) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId))
         setNewMessage(messageContent)
       } else {
+        // Notify admin of new DM (fire and forget)
+        if (insertedMsg) {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', currentUserId)
+            .single()
+          fetch('/api/notify/new-dm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message_id: insertedMsg.id,
+              sender_name: senderProfile?.full_name || 'Someone',
+              receiver_name: otherUser?.full_name || 'Someone',
+              content: messageContent,
+            }),
+          }).catch(() => {})
+        }
         await supabase
           .from('conversations')
           .update({ last_message_at: new Date().toISOString() })

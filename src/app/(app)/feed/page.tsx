@@ -28,6 +28,9 @@ export default function FeedPage() {
         if (blocked) blockedIds = blocked.map((b) => b.blocked_id)
       }
 
+      const ADMIN_EMAILS = ['keugenelee11@gmail.com']
+      const isAdmin = ADMIN_EMAILS.includes(user?.email || '')
+
       let query = supabase
         .from('posts')
         .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)')
@@ -35,8 +38,16 @@ export default function FeedPage() {
         .limit(50)
 
       if (blockedIds.length > 0) {
-        // Filter out posts from blocked users
         query = query.not('user_id', 'in', `(${blockedIds.join(',')})`)
+      }
+
+      // Admins see all posts; regular users see approved + their own
+      if (!isAdmin) {
+        if (user) {
+          query = query.or(`is_approved.eq.true,user_id.eq.${user.id}`)
+        } else {
+          query = query.eq('is_approved', true)
+        }
       }
 
       const { data } = await query

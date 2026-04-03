@@ -79,12 +79,21 @@ export default function CreatePost({ onPostCreated }: { onPostCreated: () => voi
         postData.media_urls = mediaUrls
       }
 
-      const { error: insertError } = await supabase.from('posts').insert(postData)
+      const { data: insertedPost, error: insertError } = await supabase.from('posts').insert(postData).select('id').single()
 
       if (insertError) {
         setError('Failed to create post. Please try again.')
         setLoading(false)
         return
+      }
+
+      // Notify admin of new post (fire and forget)
+      if (insertedPost) {
+        fetch('/api/notify/new-post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: insertedPost.id, content: content.trim() }),
+        }).catch(() => {})
       }
 
       setContent('')

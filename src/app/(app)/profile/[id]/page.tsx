@@ -38,9 +38,17 @@ export default function UserProfilePage() {
         }
       }
 
+      // Only show approved posts on other users' profiles (unless admin)
+      const ADMIN_EMAILS = ['keugenelee11@gmail.com']
+      const isAdmin = ADMIN_EMAILS.includes(user?.email || '')
+      let postsQuery = supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)').eq('user_id', id).order('created_at', { ascending: false })
+      if (!isAdmin) {
+        postsQuery = postsQuery.eq('is_approved', true)
+      }
+
       const [profileRes, postsRes, followersRes, followingRes, isFollowingRes, blockedRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase.from('posts').select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)').eq('user_id', id).order('created_at', { ascending: false }),
+        postsQuery,
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         user ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id) : Promise.resolve({ data: [] }),

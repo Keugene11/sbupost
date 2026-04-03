@@ -46,13 +46,21 @@ export default function MessagesPage() {
         const convos: ConversationWithProfile[] = []
         for (const c of data) {
           const otherUser = c.user1_id === user.id ? c.user2 : c.user1
-          // Fetch last message
-          const { data: msgs } = await supabase
+          // Fetch last visible message
+          const ADMIN_EMAILS = ['keugenelee11@gmail.com']
+          const isAdmin = ADMIN_EMAILS.includes(user.email || '')
+          let lastMsgQuery = supabase
             .from('messages')
             .select('content')
             .eq('conversation_id', c.id)
             .order('created_at', { ascending: false })
             .limit(1)
+
+          if (!isAdmin) {
+            lastMsgQuery = lastMsgQuery.or(`is_approved.eq.true,sender_id.eq.${user.id}`)
+          }
+
+          const { data: msgs } = await lastMsgQuery
 
           convos.push({
             id: c.id,
