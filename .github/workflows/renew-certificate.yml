@@ -10,158 +10,132 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate new certificate and provisioning profile
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate certificate and profile
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          set -e
+          npm install jsonwebtoken
 
-          # --- 1. Generate JWT for App Store Connect API ---
-          echo "=== Generating JWT ==="
-          cat > /tmp/make_jwt.py << 'PYEOF'
-          import jwt, time, sys, os
-          key = os.environ["ASC_PRIVATE_KEY"]
-          token = jwt.encode(
-              {"iss": os.environ["ASC_ISSUER_ID"], "iat": int(time.time()), "exp": int(time.time()) + 1200, "aud": "appstoreconnect-v1"},
-              key, algorithm="ES256",
-              headers={"kid": os.environ["ASC_KEY_ID"]}
-          )
-          print(token)
-          PYEOF
-          pip3 install pyjwt cryptography -q
-          TOKEN=$(python3 /tmp/make_jwt.py)
-          echo "JWT generated"
+          node << 'SCRIPT'
+          const { execSync } = require('child_process');
+          const crypto = require('crypto');
+          const jwt = require('jsonwebtoken');
+          const fs = require('fs');
 
-          API="https://api.appstoreconnect.apple.com/v1"
-          AUTH="Authorization: Bearer $TOKEN"
+          const run = (cmd) => execSync(cmd, { encoding: 'utf8' }).trim();
+          const api = async (method, endpoint, body) => {
+            const url = 'https://api.appstoreconnect.apple.com/v1' + endpoint;
+            const opts = { method, headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch(url, opts);
+            const text = await res.text();
+            if (!res.ok && method !== 'DELETE') console.error('API error:', res.status, text.slice(0, 300));
+            try { return JSON.parse(text); } catch { return text; }
+          };
 
-          # --- 2. Generate private key and CSR ---
-          echo "=== Generating private key and CSR ==="
-          openssl genrsa -out /tmp/dist.key 2048 2>/dev/null
-          openssl req -new -key /tmp/dist.key -out /tmp/dist.csr -subj "/CN=SBUPost Distribution/O=Keugene Lee/C=US"
-          CSR_B64=$(base64 -i /tmp/dist.csr | tr -d '\n')
+          // 1. Generate JWT
+          console.log('=== Generating JWT ===');
+          const now = Math.floor(Date.now() / 1000);
+          const TOKEN = jwt.sign(
+            { iss: process.env.ASC_ISSUER_ID, iat: now, exp: now + 1200, aud: 'appstoreconnect-v1' },
+            process.env.ASC_PRIVATE_KEY,
+            { algorithm: 'ES256', header: { kid: process.env.ASC_KEY_ID } }
+          );
 
-          # --- 3. Revoke old distribution certificates ---
-          echo "=== Checking existing certificates ==="
-          EXISTING=$(curl -s -H "$AUTH" "$API/certificates?filter[certificateType]=DISTRIBUTION")
-          OLD_IDS=$(echo "$EXISTING" | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for cert in data.get('data', []):
-              print(cert['id'])
-          " 2>/dev/null || true)
+          (async () => {
+            // 2. Generate private key and CSR
+            console.log('=== Generating key and CSR ===');
+            run('openssl genrsa -out /tmp/dist.key 2048 2>/dev/null');
+            run('openssl req -new -key /tmp/dist.key -out /tmp/dist.csr -subj "/CN=SBUPost Distribution/O=Keugene Lee/C=US"');
+            const csrB64 = run('base64 -i /tmp/dist.csr | tr -d "\\n"');
 
-          for OLD_ID in $OLD_IDS; do
-            echo "Revoking old certificate: $OLD_ID"
-            curl -s -X DELETE -H "$AUTH" "$API/certificates/$OLD_ID" || true
-          done
-
-          # --- 4. Create new distribution certificate ---
-          echo "=== Creating new distribution certificate ==="
-          CERT_RESPONSE=$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/certificates" -d "{
-            \"data\": {
-              \"type\": \"certificates\",
-              \"attributes\": {
-                \"certificateType\": \"DISTRIBUTION\",
-                \"csrContent\": \"$CSR_B64\"
-              }
+            // 3. Revoke old certificates
+            console.log('=== Revoking old certificates ===');
+            const existing = await api('GET', '/certificates?filter[certificateType]=DISTRIBUTION');
+            for (const cert of (existing.data || [])) {
+              console.log('Revoking:', cert.id);
+              await api('DELETE', '/certificates/' + cert.id);
             }
-          }")
 
-          CERT_ID=$(echo "$CERT_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['id'])")
-          CERT_CONTENT=$(echo "$CERT_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['certificateContent'])")
-          echo "Certificate created: $CERT_ID"
+            // 4. Create new certificate
+            console.log('=== Creating new certificate ===');
+            const certRes = await api('POST', '/certificates', {
+              data: { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: csrB64 } }
+            });
+            if (!certRes.data) { console.error('Failed to create cert:', JSON.stringify(certRes).slice(0, 500)); process.exit(1); }
+            const certId = certRes.data.id;
+            const certContent = certRes.data.attributes.certificateContent;
+            console.log('Certificate created:', certId);
 
-          # Save certificate
-          echo "$CERT_CONTENT" | base64 --decode > /tmp/dist.cer
+            // 5. Create .p12
+            console.log('=== Creating .p12 ===');
+            fs.writeFileSync('/tmp/dist.cer', Buffer.from(certContent, 'base64'));
+            const p12Pass = 'sbupost2026';
+            run('openssl x509 -inform DER -in /tmp/dist.cer -out /tmp/dist.pem');
+            run(`openssl pkcs12 -export -out /tmp/dist.p12 -inkey /tmp/dist.key -in /tmp/dist.pem -password pass:${p12Pass}`);
+            const p12B64 = run('base64 -i /tmp/dist.p12 | tr -d "\\n"');
 
-          # --- 5. Create .p12 from private key + certificate ---
-          echo "=== Creating .p12 ==="
-          P12_PASSWORD="sbupost2026"
-          openssl x509 -inform DER -in /tmp/dist.cer -out /tmp/dist.pem
-          openssl pkcs12 -export -out /tmp/dist.p12 -inkey /tmp/dist.key -in /tmp/dist.pem -password pass:$P12_PASSWORD
-          P12_B64=$(base64 -i /tmp/dist.p12 | tr -d '\n')
-          echo "P12 created"
+            // 6. Find bundle ID
+            console.log('=== Finding bundle ID ===');
+            const bundleRes = await api('GET', '/bundleIds?filter[identifier]=com.sbupost.app');
+            if (!bundleRes.data?.length) { console.error('Bundle ID not found'); process.exit(1); }
+            const bundleId = bundleRes.data[0].id;
+            console.log('Bundle ID:', bundleId);
 
-          # --- 6. Find or create app bundle ID ---
-          echo "=== Finding bundle ID ==="
-          BUNDLE_RESPONSE=$(curl -s -H "$AUTH" "$API/bundleIds?filter[identifier]=com.sbupost.app")
-          BUNDLE_ID=$(echo "$BUNDLE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data'][0]['id'])")
-          echo "Bundle ID: $BUNDLE_ID"
+            // 7. Delete old profiles
+            console.log('=== Cleaning old profiles ===');
+            const oldProfiles = await api('GET', '/profiles?filter[profileType]=IOS_APP_STORE');
+            for (const p of (oldProfiles.data || [])) {
+              console.log('Deleting profile:', p.attributes.name, p.id);
+              await api('DELETE', '/profiles/' + p.id);
+            }
 
-          # --- 7. Delete old provisioning profiles ---
-          echo "=== Cleaning old profiles ==="
-          OLD_PROFILES=$(curl -s -H "$AUTH" "$API/profiles?filter[profileType]=IOS_APP_STORE&filter[name]=SBUPost%20AppStore")
-          OLD_PROFILE_IDS=$(echo "$OLD_PROFILES" | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for p in data.get('data', []):
-              print(p['id'])
-          " 2>/dev/null || true)
-
-          for OLD_PID in $OLD_PROFILE_IDS; do
-            echo "Deleting old profile: $OLD_PID"
-            curl -s -X DELETE -H "$AUTH" "$API/profiles/$OLD_PID" || true
-          done
-
-          # --- 8. Create new provisioning profile ---
-          echo "=== Creating provisioning profile ==="
-          # Get all device IDs
-          DEVICES=$(curl -s -H "$AUTH" "$API/devices?filter[platform]=IOS&limit=200")
-          DEVICE_IDS=$(echo "$DEVICES" | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for d in data.get('data', []):
-              if d['attributes'].get('status') == 'ENABLED':
-                  print(d['id'])
-          ")
-
-          # Build devices JSON array
-          DEVICES_JSON=$(echo "$DEVICE_IDS" | python3 -c "
-          import sys, json
-          ids = [line.strip() for line in sys.stdin if line.strip()]
-          print(json.dumps([{'type': 'devices', 'id': i} for i in ids]))
-          ")
-
-          PROFILE_RESPONSE=$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/profiles" -d "{
-            \"data\": {
-              \"type\": \"profiles\",
-              \"attributes\": {
-                \"name\": \"SBUPost AppStore\",
-                \"profileType\": \"IOS_APP_STORE\"
-              },
-              \"relationships\": {
-                \"bundleId\": {
-                  \"data\": {\"type\": \"bundleIds\", \"id\": \"$BUNDLE_ID\"}
-                },
-                \"certificates\": {
-                  \"data\": [{\"type\": \"certificates\", \"id\": \"$CERT_ID\"}]
-                },
-                \"devices\": {
-                  \"data\": $DEVICES_JSON
+            // 8. Create new provisioning profile
+            console.log('=== Creating provisioning profile ===');
+            const profileRes = await api('POST', '/profiles', {
+              data: {
+                type: 'profiles',
+                attributes: { name: 'SBUPost AppStore', profileType: 'IOS_APP_STORE' },
+                relationships: {
+                  bundleId: { data: { type: 'bundleIds', id: bundleId } },
+                  certificates: { data: [{ type: 'certificates', id: certId }] }
                 }
               }
-            }
-          }")
+            });
+            if (!profileRes.data) { console.error('Failed to create profile:', JSON.stringify(profileRes).slice(0, 500)); process.exit(1); }
+            const profileUUID = profileRes.data.attributes.uuid;
+            const profileContent = profileRes.data.attributes.profileContent;
+            console.log('Profile created:', profileUUID);
 
-          PROFILE_UUID=$(echo "$PROFILE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['uuid'])")
-          PROFILE_CONTENT=$(echo "$PROFILE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['profileContent'])")
-          echo "Profile created: $PROFILE_UUID"
+            // 9. Save profile to file for base64
+            fs.writeFileSync('/tmp/profile.mobileprovision', Buffer.from(profileContent, 'base64'));
+            const profileB64 = run('base64 -i /tmp/profile.mobileprovision | tr -d "\\n"');
 
-          # --- 9. Update GitHub secrets ---
-          echo "=== Updating GitHub secrets ==="
-          echo "$P12_B64" | gh secret set DISTRIBUTION_CERTIFICATE_P12 --repo "$GITHUB_REPOSITORY"
-          echo "$P12_PASSWORD" | gh secret set DISTRIBUTION_CERTIFICATE_PASSWORD --repo "$GITHUB_REPOSITORY"
-          echo "$PROFILE_CONTENT" | base64 --decode > /tmp/profile.mobileprovision
-          base64 -i /tmp/profile.mobileprovision | tr -d '\n' | gh secret set PROVISIONING_PROFILE --repo "$GITHUB_REPOSITORY"
-          echo "$PROFILE_UUID" | gh secret set PROVISIONING_PROFILE_UUID --repo "$GITHUB_REPOSITORY"
+            // 10. Update GitHub secrets
+            console.log('=== Updating GitHub secrets ===');
+            const repo = process.env.GITHUB_REPOSITORY;
+            const gh = (name, value) => {
+              execSync(`gh secret set ${name} --repo "${repo}"`, { input: value, encoding: 'utf8' });
+              console.log('Updated secret:', name);
+            };
+            gh('DISTRIBUTION_CERTIFICATE_P12', p12B64);
+            gh('DISTRIBUTION_CERTIFICATE_PASSWORD', p12Pass);
+            gh('PROVISIONING_PROFILE', profileB64);
+            gh('PROVISIONING_PROFILE_UUID', profileUUID);
 
-          echo ""
-          echo "=== DONE ==="
-          echo "Certificate ID: $CERT_ID"
-          echo "Profile UUID: $PROFILE_UUID"
-          echo "All GitHub secrets updated."
+            console.log('');
+            console.log('=== DONE ===');
+            console.log('Certificate ID:', certId);
+            console.log('Profile UUID:', profileUUID);
+          })().catch(e => { console.error(e); process.exit(1); });
+          SCRIPT
