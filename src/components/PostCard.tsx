@@ -43,7 +43,8 @@ export default function PostCard({ post, currentUserId, onDeleted, defaultShowCo
   const [impressions, setImpressions] = useState(post.post_impressions?.length ?? 0)
   const [showReport, setShowReport] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-  const impressionRecorded = useRef(false)
+  const alreadyViewed = post.post_impressions?.some((i: { user_id: string }) => i.user_id === currentUserId) ?? false
+  const impressionRecorded = useRef(alreadyViewed)
   const isOwn = currentUserId === post.user_id
 
   useEffect(() => {

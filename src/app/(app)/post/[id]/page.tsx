@@ -18,7 +18,7 @@ export default function PostDetailPage() {
   const fetchPost = useCallback(async () => {
     const { data } = await supabase
       .from('posts')
-      .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)')
+      .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)')
       .eq('id', id)
       .single()
     if (data) setPost(data as Post)

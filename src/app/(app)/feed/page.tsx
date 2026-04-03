@@ -30,7 +30,7 @@ export default function FeedPage() {
 
       let query = supabase
         .from('posts')
-        .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(post_id)')
+        .select('*, profiles!posts_user_id_fkey(*), likes(user_id), post_impressions(user_id)')
         .order('created_at', { ascending: false })
         .limit(50)
 
