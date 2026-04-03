@@ -1,0 +1,167 @@
+name: Renew iOS Certificate & Profile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  renew:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate new certificate and provisioning profile
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+
+          # --- 1. Generate JWT for App Store Connect API ---
+          echo "=== Generating JWT ==="
+          cat > /tmp/make_jwt.py << 'PYEOF'
+          import jwt, time, sys, os
+          key = os.environ["ASC_PRIVATE_KEY"]
+          token = jwt.encode(
+              {"iss": os.environ["ASC_ISSUER_ID"], "iat": int(time.time()), "exp": int(time.time()) + 1200, "aud": "appstoreconnect-v1"},
+              key, algorithm="ES256",
+              headers={"kid": os.environ["ASC_KEY_ID"]}
+          )
+          print(token)
+          PYEOF
+          pip3 install pyjwt cryptography -q
+          TOKEN=$(python3 /tmp/make_jwt.py)
+          echo "JWT generated"
+
+          API="https://api.appstoreconnect.apple.com/v1"
+          AUTH="Authorization: Bearer $TOKEN"
+
+          # --- 2. Generate private key and CSR ---
+          echo "=== Generating private key and CSR ==="
+          openssl genrsa -out /tmp/dist.key 2048 2>/dev/null
+          openssl req -new -key /tmp/dist.key -out /tmp/dist.csr -subj "/CN=SBUPost Distribution/O=Keugene Lee/C=US"
+          CSR_B64=$(base64 -i /tmp/dist.csr | tr -d '\n')
+
+          # --- 3. Revoke old distribution certificates ---
+          echo "=== Checking existing certificates ==="
+          EXISTING=$(curl -s -H "$AUTH" "$API/certificates?filter[certificateType]=DISTRIBUTION")
+          OLD_IDS=$(echo "$EXISTING" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for cert in data.get('data', []):
+              print(cert['id'])
+          " 2>/dev/null || true)
+
+          for OLD_ID in $OLD_IDS; do
+            echo "Revoking old certificate: $OLD_ID"
+            curl -s -X DELETE -H "$AUTH" "$API/certificates/$OLD_ID" || true
+          done
+
+          # --- 4. Create new distribution certificate ---
+          echo "=== Creating new distribution certificate ==="
+          CERT_RESPONSE=$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/certificates" -d "{
+            \"data\": {
+              \"type\": \"certificates\",
+              \"attributes\": {
+                \"certificateType\": \"DISTRIBUTION\",
+                \"csrContent\": \"$CSR_B64\"
+              }
+            }
+          }")
+
+          CERT_ID=$(echo "$CERT_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['id'])")
+          CERT_CONTENT=$(echo "$CERT_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['certificateContent'])")
+          echo "Certificate created: $CERT_ID"
+
+          # Save certificate
+          echo "$CERT_CONTENT" | base64 --decode > /tmp/dist.cer
+
+          # --- 5. Create .p12 from private key + certificate ---
+          echo "=== Creating .p12 ==="
+          P12_PASSWORD="sbupost2026"
+          openssl x509 -inform DER -in /tmp/dist.cer -out /tmp/dist.pem
+          openssl pkcs12 -export -out /tmp/dist.p12 -inkey /tmp/dist.key -in /tmp/dist.pem -password pass:$P12_PASSWORD
+          P12_B64=$(base64 -i /tmp/dist.p12 | tr -d '\n')
+          echo "P12 created"
+
+          # --- 6. Find or create app bundle ID ---
+          echo "=== Finding bundle ID ==="
+          BUNDLE_RESPONSE=$(curl -s -H "$AUTH" "$API/bundleIds?filter[identifier]=com.sbupost.app")
+          BUNDLE_ID=$(echo "$BUNDLE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data'][0]['id'])")
+          echo "Bundle ID: $BUNDLE_ID"
+
+          # --- 7. Delete old provisioning profiles ---
+          echo "=== Cleaning old profiles ==="
+          OLD_PROFILES=$(curl -s -H "$AUTH" "$API/profiles?filter[profileType]=IOS_APP_STORE&filter[name]=SBUPost%20AppStore")
+          OLD_PROFILE_IDS=$(echo "$OLD_PROFILES" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for p in data.get('data', []):
+              print(p['id'])
+          " 2>/dev/null || true)
+
+          for OLD_PID in $OLD_PROFILE_IDS; do
+            echo "Deleting old profile: $OLD_PID"
+            curl -s -X DELETE -H "$AUTH" "$API/profiles/$OLD_PID" || true
+          done
+
+          # --- 8. Create new provisioning profile ---
+          echo "=== Creating provisioning profile ==="
+          # Get all device IDs
+          DEVICES=$(curl -s -H "$AUTH" "$API/devices?filter[platform]=IOS&limit=200")
+          DEVICE_IDS=$(echo "$DEVICES" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for d in data.get('data', []):
+              if d['attributes'].get('status') == 'ENABLED':
+                  print(d['id'])
+          ")
+
+          # Build devices JSON array
+          DEVICES_JSON=$(echo "$DEVICE_IDS" | python3 -c "
+          import sys, json
+          ids = [line.strip() for line in sys.stdin if line.strip()]
+          print(json.dumps([{'type': 'devices', 'id': i} for i in ids]))
+          ")
+
+          PROFILE_RESPONSE=$(curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" "$API/profiles" -d "{
+            \"data\": {
+              \"type\": \"profiles\",
+              \"attributes\": {
+                \"name\": \"SBUPost AppStore\",
+                \"profileType\": \"IOS_APP_STORE\"
+              },
+              \"relationships\": {
+                \"bundleId\": {
+                  \"data\": {\"type\": \"bundleIds\", \"id\": \"$BUNDLE_ID\"}
+                },
+                \"certificates\": {
+                  \"data\": [{\"type\": \"certificates\", \"id\": \"$CERT_ID\"}]
+                },
+                \"devices\": {
+                  \"data\": $DEVICES_JSON
+                }
+              }
+            }
+          }")
+
+          PROFILE_UUID=$(echo "$PROFILE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['uuid'])")
+          PROFILE_CONTENT=$(echo "$PROFILE_RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['data']['attributes']['profileContent'])")
+          echo "Profile created: $PROFILE_UUID"
+
+          # --- 9. Update GitHub secrets ---
+          echo "=== Updating GitHub secrets ==="
+          echo "$P12_B64" | gh secret set DISTRIBUTION_CERTIFICATE_P12 --repo "$GITHUB_REPOSITORY"
+          echo "$P12_PASSWORD" | gh secret set DISTRIBUTION_CERTIFICATE_PASSWORD --repo "$GITHUB_REPOSITORY"
+          echo "$PROFILE_CONTENT" | base64 --decode > /tmp/profile.mobileprovision
+          base64 -i /tmp/profile.mobileprovision | tr -d '\n' | gh secret set PROVISIONING_PROFILE --repo "$GITHUB_REPOSITORY"
+          echo "$PROFILE_UUID" | gh secret set PROVISIONING_PROFILE_UUID --repo "$GITHUB_REPOSITORY"
+
+          echo ""
+          echo "=== DONE ==="
+          echo "Certificate ID: $CERT_ID"
+          echo "Profile UUID: $PROFILE_UUID"
+          echo "All GitHub secrets updated."
