@@ -104,6 +104,9 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'SBUPost needs photo library access to share photos in posts'" App/Info.plist || true
           /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'SBUPost needs microphone access to record videos'" App/Info.plist || true
 
+          # Export compliance — app only uses HTTPS (exempt)
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" App/Info.plist || true
+
           # Bump build number using run number to ensure uniqueness
           BUILD_NUMBER=${{ github.run_number }}
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" App/Info.plist
