@@ -167,32 +167,36 @@ export default function ProfilePage() {
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Profile photo must be under 5MB')
-      return
-    }
-    const supabase = supabaseRef.current
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    if (avatarUrl) {
-      const oldPath = avatarUrl.split('/post-images/')[1]
-      if (oldPath) {
-        await supabase.storage.from('post-images').remove([decodeURIComponent(oldPath)])
+    try {
+      const file = e.target.files?.[0]
+      if (!file) return
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Profile photo must be under 5MB')
+        return
       }
-    }
+      const supabase = supabaseRef.current
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const fileName = `avatars/${user.id}/${Date.now()}.${file.name.split('.').pop()}`
-    const { error } = await supabase.storage.from('post-images').upload(fileName, file)
-    if (error) {
+      if (avatarUrl) {
+        const oldPath = avatarUrl.split('/post-images/')[1]
+        if (oldPath) {
+          await supabase.storage.from('post-images').remove([decodeURIComponent(oldPath)])
+        }
+      }
+
+      const fileName = `avatars/${user.id}/${Date.now()}.${file.name.split('.').pop()}`
+      const { error } = await supabase.storage.from('post-images').upload(fileName, file)
+      if (error) {
+        alert('Failed to upload photo. Please try again.')
+        return
+      }
+      const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
+      setAvatarUrl(urlData.publicUrl)
+      autoSave({ avatar_url: urlData.publicUrl })
+    } catch {
       alert('Failed to upload photo. Please try again.')
-      return
     }
-    const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-    setAvatarUrl(urlData.publicUrl)
-    autoSave({ avatar_url: urlData.publicUrl })
   }
 
   const handleLogout = async () => {

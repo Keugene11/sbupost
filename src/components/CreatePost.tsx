@@ -54,43 +54,48 @@ export default function CreatePost({ onPostCreated }: { onPostCreated: () => voi
     if (content.length > MAX_CHARS) return
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const mediaUrls: string[] = []
+      const mediaUrls: string[] = []
 
-    for (const file of files) {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
-      const { error } = await supabase.storage.from('post-images').upload(fileName, file)
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-        mediaUrls.push(urlData.publicUrl)
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
+        const { error } = await supabase.storage.from('post-images').upload(fileName, file)
+        if (!error) {
+          const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
+          mediaUrls.push(urlData.publicUrl)
+        }
       }
-    }
 
-    const postData: Record<string, unknown> = {
-      user_id: user.id,
-      content: content.trim(),
-      image_url: mediaUrls[0] || null,
-    }
-    if (mediaUrls.length > 0) {
-      postData.media_urls = mediaUrls
-    }
+      const postData: Record<string, unknown> = {
+        user_id: user.id,
+        content: content.trim(),
+        image_url: mediaUrls[0] || null,
+      }
+      if (mediaUrls.length > 0) {
+        postData.media_urls = mediaUrls
+      }
 
-    const { error: insertError } = await supabase.from('posts').insert(postData)
+      const { error: insertError } = await supabase.from('posts').insert(postData)
 
-    if (insertError) {
+      if (insertError) {
+        setError('Failed to create post. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      setContent('')
+      setFiles([])
+      setPreviews([])
+      setLoading(false)
+      onPostCreated()
+    } catch {
       setError('Failed to create post. Please try again.')
       setLoading(false)
-      return
     }
-
-    setContent('')
-    setFiles([])
-    setPreviews([])
-    setLoading(false)
-    onPostCreated()
   }
 
   const charsLeft = MAX_CHARS - content.length
