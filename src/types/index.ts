@@ -27,7 +27,7 @@ export interface Post {
   created_at: string
   profiles: Profile
   likes: { user_id: string }[]
-  post_impressions: { post_id: string }[]
+  post_impressions: { user_id: string }[]
 }
 
 export interface Follow {
