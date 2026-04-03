@@ -57,7 +57,7 @@ jobs:
             console.log('=== Generating key and CSR ===');
             run('openssl genrsa -out /tmp/dist.key 2048 2>/dev/null');
             run('openssl req -new -key /tmp/dist.key -out /tmp/dist.csr -subj "/CN=SBUPost Distribution/O=Keugene Lee/C=US"');
-            const csrB64 = run('base64 -i /tmp/dist.csr | tr -d "\\n"');
+            const csrContent = fs.readFileSync('/tmp/dist.csr', 'utf8');
 
             // 3. Revoke old certificates
             console.log('=== Revoking old certificates ===');
@@ -70,7 +70,7 @@ jobs:
             // 4. Create new certificate
             console.log('=== Creating new certificate ===');
             const certRes = await api('POST', '/certificates', {
-              data: { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: csrB64 } }
+              data: { type: 'certificates', attributes: { certificateType: 'DISTRIBUTION', csrContent: csrContent } }
             });
             if (!certRes.data) { console.error('Failed to create cert:', JSON.stringify(certRes).slice(0, 500)); process.exit(1); }
             const certId = certRes.data.id;
