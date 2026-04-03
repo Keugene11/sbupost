@@ -99,6 +99,11 @@ jobs:
           sed -i '' "s/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = ${APPLE_TEAM_ID};/g" App.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' App.xcodeproj/project.pbxproj
 
+          # Add camera, photo library, and microphone permissions
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'SBUPost needs camera access to take photos for posts and your profile'" App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'SBUPost needs photo library access to share photos in posts'" App/Info.plist || true
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'SBUPost needs microphone access to record videos'" App/Info.plist || true
+
           # Bump build number using run number to ensure uniqueness
           BUILD_NUMBER=${{ github.run_number }}
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" App/Info.plist
